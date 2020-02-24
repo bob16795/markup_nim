@@ -1,4 +1,3 @@
-import lists, strutils
 import nodes, output, tokenclass
 
 type
@@ -35,7 +34,6 @@ proc initParser*(tokens: seq[Token], tok_idx: int): parser =
 proc alphaNumSymParser(psr: var parser): Node =
   var text = ""
   var found = true
-  var start = psr.tok_idx
   var start_pos = psr.c_tok.pos_start
   while found:
     found = false
@@ -71,14 +69,25 @@ proc alphaNumSymParser(psr: var parser): Node =
 proc alphaNumSymTagParser(psr: var parser): Node =
   var text = ""
   var found = true
-  var start = psr.tok_idx
   var start_pos = psr.c_tok.pos_start
   while found:
     found = false
     case psr.c_tok.ttype:
+    of "tt_lparen":
+      found = true
+      text = text & "("
+      psr.advance()
+    of "tt_rparen":
+      found = true
+      text = text & ")"
+      psr.advance()
     of "tt_underscore":
       found = true
       text = text & "_"
+      psr.advance()
+    of "tt_colon":
+      found = true
+      text = text & ":"
       psr.advance()
     of "tt_star":
       found = true
@@ -111,7 +120,6 @@ proc alphaNumSymTagParser(psr: var parser): Node =
 proc alphaNumSymEquParser(psr: var parser): Node =
   var text = ""
   var found = true
-  var start = psr.tok_idx
   var start_pos = psr.c_tok.pos_start
   while found:
     found = false
@@ -167,7 +175,6 @@ proc alphaNumSymEquParser(psr: var parser): Node =
 proc alphaNumSymMoreParser(psr: var parser): Node =
   var text = ""
   var found = true
-  var start = psr.tok_idx
   var start_pos = psr.c_tok.pos_start
   while found:
     found = false
@@ -237,11 +244,9 @@ proc alphaNumSymMoreParser(psr: var parser): Node =
   return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
 
 proc propLineParser(psr: var parser): Node =
-  var start = psr.tok_idx
   var start_condition, start_statment, end_statment = psr.c_tok.pos_start
   var invert = false
   var condition, prop, value = ""
-  var start_pos = psr.c_tok.pos_start
   if psr.c_tok.ttype == "tt_exclaim":
       invert = true
       psr.advance()
@@ -312,9 +317,9 @@ proc propSecParser(psr: var parser): Node =
   var node = psr.propDivParser()
   if node.kind == nkNone:
     return Node(kind: nkNone)
-  var Nodes = initSinglyLinkedList[Node]()
+  var Nodes: seq[Node]
   while node.kind != nkNone:
-      Nodes.append(node)
+      Nodes.add(node)
       node = psr.propLineParser()
   node = psr.propDivParser()
   if node.kind == nkNone:
@@ -458,7 +463,6 @@ proc tagParser(psr: var parser): Node =
 
 proc equParser(psr: var parser): Node =
   var start_pos = psr.c_tok.pos_start
-  var tag_name, tag_value: string
   var node: Node
 
   if psr.c_tok.ttype != "tt_dollar":
@@ -541,7 +545,7 @@ proc listlevel3Parser(psr: var parser): Node =
 
 proc textListParser(psr: var parser): Node =
   var start_pos = psr.c_tok.pos_start
-  var Nodes = initSinglyLinkedList[Node]()
+  var Nodes: seq[Node]
   var start = psr.tok_idx
   var node = psr.listlevel3Parser()
   if node.kind == nkNone:
@@ -556,7 +560,7 @@ proc textListParser(psr: var parser): Node =
   var error = false
   while error == false:
     start = psr.tok_idx
-    Nodes.append(node)
+    Nodes.add(node)
     node = psr.listlevel3Parser()
     if node.kind == nkNone:
       psr.goto(start)
@@ -602,9 +606,9 @@ proc textSecParser(psr: var parser): Node =
   #   node = psr.textTableParser()
   if node.kind == nkNone:
     return Node(kind: nkNone)
-  var Nodes = initSinglyLinkedList[Node]()
+  var Nodes: seq[Node]
   while node.kind != nkNone:
-    Nodes.append(node)
+    Nodes.add(node)
     node = psr.textCommentParser()
     if node.kind == nkNone:
       node = psr.equParser()
@@ -621,7 +625,7 @@ proc textSecParser(psr: var parser): Node =
   node = psr.textParEndParser()
   if node.kind == nkNone:
     return Node(kind: nkNone)
-  Nodes.append(node)
+  Nodes.add(node)
   return Node(start_pos: start_pos,
               end_pos: psr.c_tok.pos_start,
               kind: nkTextSec,
@@ -629,14 +633,14 @@ proc textSecParser(psr: var parser): Node =
 
 proc bodyParser(psr: var parser): Node =
   var start_pos = psr.c_tok.pos_start
-  var Nodes = initSinglyLinkedList[Node]()
+  var Nodes: seq[Node]
   var node = psr.propSecParser()
   if node.kind == nkNone:
     node = psr.textSecParser()
   if node.kind == nkNone:
     return Node(kind: nkNone)
   while node.kind != nkNone:
-    Nodes.append(node)
+    Nodes.add(node)
     node = psr.propSecParser()
     if node.kind == nkNone:
       node = psr.textSecParser()
@@ -648,5 +652,4 @@ proc bodyParser(psr: var parser): Node =
               Contains: Nodes)
 
 proc runParser*(psr: var parser): Node =
-  var Nodes = initSinglyLinkedList[Node]()
   return psr.bodyParser

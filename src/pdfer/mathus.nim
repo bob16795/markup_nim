@@ -25,7 +25,6 @@ proc get_obj*(equ: var equation, x: int, y: int, font: string = "times.ttf"): pd
       of '^':
         text_tmp = ""
         idx += 1
-        var text: string
         result.append_text("5 Ts\n/F1 7 Tf\n(")
         while idx < len(equ.text) and equ.text[idx] != '^':
           text_tmp.add(equ.text[idx])
@@ -39,7 +38,6 @@ proc get_obj*(equ: var equation, x: int, y: int, font: string = "times.ttf"): pd
       of '_':
         text_tmp = ""
         idx += 1
-        var text: string
         result.append_text("-5 Ts\n/F1 7 Tf\n(")
         while idx < len(equ.text) and equ.text[idx] != '_':
           text_tmp.add(equ.text[idx])  
@@ -54,7 +52,6 @@ proc get_obj*(equ: var equation, x: int, y: int, font: string = "times.ttf"): pd
         start_pos = pos
         text_tmp = ""
         idx += 1
-        var text: string
         result.append_text(&"5 Ts\n{start_pos} 0 Td\n/F1 7 Tf\n(")
         while idx < len(equ.text) and equ.text[idx] != '<':
           text_tmp.add(equ.text[idx])  

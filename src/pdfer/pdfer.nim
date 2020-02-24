@@ -1,7 +1,6 @@
 import objects, lib
 import tables, strformat, strutils
 import sequtils
-import sdl2/sdl_ttf as ttf
 import algorithm
 import mathus
 
@@ -24,7 +23,7 @@ type
     include_title_page*, include_index*, include_toc*: bool
     index*: Table[char, Table[string, seq[int]]]
     toc*: OrderedTable[string, array[0..1, int]]
-    header*, footer*: array[0..2, string]
+    header*, footer*: seq[string]
     y*, y_start*: float
 
 proc add_page*(file: var pdf_file, text: string = "", size: float = -1, odd: int = -1)
@@ -59,7 +58,7 @@ proc add_header_footer(file: var pdf_file, page: int, offset: int) =
     for align in 0..<3:
       if i[align] != "":
         text = i[align]
-        text = text.replace("{page_number}", $(page))
+        text = text.replace("{page_number}", $(page + 1))
         text = text.replace("{page_total}", $(len(file.page_objs)))
         text = text.replace("{title}", $(file.title))
         text = text.replace("{author}", $(file.author))
@@ -139,12 +138,12 @@ proc `$`*(file: var pdf_file): string =
   var footer = &"xref\n0 {len(objects_ordered) - 1}\n0000000000 65535 f\n"
   var end_file = &"trailer\n<< /Size {len(objects_ordered) - 1}\n/Root 1 0 R\n>>\nstartxref\n"
   for i, obj in (objects_ordered):
-      footer = footer & &"{len(result) - 1:010} 00000 n\n"
-      result = result & &"{i + 1} 0 obj\n{$obj}endobj\n"
+      footer &= &"{len(result) - 1:010} 00000 n\n"
+      result &= &"{i + 1} 0 obj\n{$obj}endobj\n"
   for i, obj in (objects_ordered):
     result = result.replace(&"{obj.ident()}", &"{i + 1} 0 R")
-  end_file = end_file & &"{len(result)-1}\n%%EOF"
-  result = result & footer & end_file
+  end_file &= &"{len(result)-1}\n%%EOF"
+  result &= footer & end_file
 
 proc add_equation*(file: var pdf_file, text: string) =
   if file.y - (12 + file.line_spacing) < 100:
@@ -242,7 +241,6 @@ proc add_page*(file: var pdf_file, text: string = "", size: float = -1, odd: int
   if odd != -1:
     if (len(file.page_objs) mod 2 == 0) == (odd == 0):
       file.page_objs.add(page)
-      var page = initPageObject()
   file.page_objs.add(page)
   if text.strip() != "":
     file.add_text(text, size)
@@ -263,7 +261,6 @@ proc add_line*(file: var pdf_file, padding_top, padding_bot: float, perc: float 
   file.add_space(padding_bot)
 
 proc add_heading*(file: var pdf_file, text: string, level: int) =
-  var space = 0
   var align = 1
   var col_start = file.columns
   var size = 32
@@ -343,7 +340,7 @@ proc add_index*(file: var pdf_file, offset: int = 0) =
       file.y += 12 + file.line_spacing
       var numbers: string
       for i in pages:
-        numbers = numbers & $(i + offset) & ", "
+        numbers &= $(i + offset) & ", "
       file.add_text(numbers[0..^3], 12.0, align=2)
   file.index = initTable[char, Table[string, seq[int]]]()
 
@@ -394,6 +391,6 @@ proc init_pdf_file*(): pdf_file =
   result.include_title_page = false
   result.include_index = false
   result.include_toc = false
-  result.header = ["{page_number}", "{part}", "{chapter}"]
-  result.footer = ["{author}", "", "{title}"]
+  result.header = @["{page_number}", "{part}", "{chapter}"]
+  result.footer = @["{author}", "", "{title}"]
   result.add_page()

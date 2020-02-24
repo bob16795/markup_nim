@@ -7,13 +7,23 @@ type
     nkprolog,       # document prolog               branch
     nkXMLDecl,      # xml declration                branch
     nkVersionInfo,  # version information           leaf
+    nkVersionNum,   # version number                leaf
     nkSpace,        # whitespace                    leaf
+    nkSDDecl,       # standalone declration         branch
+    nkEncodingDecl, # encoding declration           branch
+    nkEncodingName, # encoding name                 leaf
+    nkEq,           # equal                         leaf
   Node* = object
-#    start_pos*, end_pos*: position
     case kind*: NodeKind  # the ``kind`` field is the discriminator
-    of nkDocument, nkXMLDecl, nkprolog, nkVersionInfo:
+    of nkDocument, nkXMLDecl, nkprolog, nkVersionInfo, nkEncodingDecl:
       Contains*: seq[Node]
-    of nkNone, nkSpace:
+    of nkVersionNum:
+      num*: string
+    of nkSDDecl:
+      yon*: string
+    of nkEncodingName:
+      enc*: string
+    of nkNone, nkSpace, nkEq:
       discard
 
 proc `$`*(nod: Node): string =
@@ -22,25 +32,41 @@ proc `$`*(nod: Node): string =
   of nkDocument:
     node_type = "Document"
     for node in nod.Contains:
-      node_value = node_value & $node
+      node_value &= $node
   of nkNone:
     node_type = "None"
     node_value = "None"
   of nkSpace:
-    node_type = "Space"
+    node_type = "S"
+    node_value = "None"
+  of nkEq:
+    node_type = "Eq"
     node_value = "None"
   of nkXMLDecl:
     node_type = "XMLDecl"
     for node in nod.Contains:
-      node_value = node_value & $node
+      node_value &= $node
+  of nkSDDecl:
+    node_type = "SDDecl"
+    node_value = nod.yon
+  of nkEncodingDecl:
+    node_type = "EncodingDecl"
+    for node in nod.Contains:
+      node_value &= $node
+  of nkEncodingName:
+    node_type = "EncodingName"
+    node_value = nod.enc
   of nkVersionInfo:
     node_type = "VersionInfo"
     for node in nod.Contains:
-      node_value = node_value & $node
+      node_value &= $node
+  of nkVersionNum:
+    node_type = "VersionNum"
+    node_value = nod.num
   of nkprolog:
     node_type = "prolog"
     for node in nod.Contains:
-      node_value = node_value & $node
+      node_value &= $node
   return "<" & node_type & ": " & node_value & ">"
     
 

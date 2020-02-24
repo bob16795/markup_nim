@@ -1,4 +1,3 @@
-import lists
 import tokenclass, output
 
 let DIGITS = "0123456789"
@@ -9,8 +8,6 @@ type
     text: string
     pos: position
     c_char: char
-
-var lex: lexer
 
 proc advanceLexer(lex: var lexer) =
   #lex = lex

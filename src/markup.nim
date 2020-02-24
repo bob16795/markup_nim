@@ -2,6 +2,7 @@ import parseopt, lists, tables, os, re
 import strformat, strutils
 import lexer, parser
 import interpreter
+#import nimprof
 
 var p = initOptParser()
 
@@ -25,6 +26,8 @@ proc help(msg: int, app_name: string = "markup") =
     discard
   quit()
 
+var wrote = 0
+
 proc compile(file: string, prop: Table[string, string], wd: string) = 
   echo "compile: ", file
   var lexer_obj = initLexer(readFile(wd & "/" & file), file)
@@ -40,7 +43,8 @@ proc compile(file: string, prop: Table[string, string], wd: string) =
       echo output.file
     else:
       echo "Writing: ", output_file
-      writeFile(expandFilename(wd & "/" & output_file), output.file)
+      writeFile(wd & "/" & output_file, output.file)
+      wrote += 1
   if use != "":
     for text in use.split(";"):
       var pattern = text.strip()
@@ -88,6 +92,7 @@ proc main() =
       help(2)
   for file in files:
     compile(file, prop, getCurrentDir())
+    echo "DONE\n\nwrote ", $wrote, " files\n"
   if files.len < 1:
     help(1)
 main()

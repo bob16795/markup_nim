@@ -1,4 +1,4 @@
-import md5, tables, sequtils, strutils
+import md5, tables, strutils
 
 type
   pdf_object* = object of RootObj
@@ -14,13 +14,13 @@ proc `$`*(obj: pdf_object): string =
     result = "<<\n/Type /" & obj.otype & "\n"
     for key, value in obj.dict:
       if len(value) >= 2:
-        result = result & key & " [" & value.join(" ") & "]" & "\n"
+        result &= key & " [" & value.join(" ") & "]" & "\n"
       elif len(value) == 1:
         if key != "/Kids":
-          result = result & key & " " & value.join(" ") & "\n"
+          result &= key & " " & value.join(" ") & "\n"
         else:
-          result = result & key & " [" & value.join(" ") & "]" & "\n"
-    result = result & ">>\n"
+          result &= key & " [" & value.join(" ") & "]" & "\n"
+    result &= ">>\n"
   else:
     result = "<</Length " & $obj.stream.len & ">>\nstream\n" & obj.stream & "endstream\n"
 
@@ -39,7 +39,7 @@ proc append*(obj: var pdf_object, key: string, child: pdf_object) =
     obj.dict[key] = @[child.ident()]
 
 proc append_text*(obj: var pdf_object, text: string) =
-  obj.stream = obj.stream & text
+  obj.stream &= text
 
 
 proc initCatalogObject*(): pdf_object =
