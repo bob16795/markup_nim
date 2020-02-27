@@ -84,8 +84,3 @@ proc get_obj*(equ: var equation, x: int, y: int, font: string = "times.ttf"): pd
     text = ""
   result.append_text("ET\n")
 
-# var equ: equation
-# lib_init()
-# equ.text = "-log\\<1<2<(3.8x10\\^-10^) = 9.42"
-
-# echo equ.get_obj(1,18, "/home/john/doc/rep/markup_nim/src/pdfer/times.ttf")

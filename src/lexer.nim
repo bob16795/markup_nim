@@ -1,7 +1,7 @@
 import tokenclass, output
 
 let DIGITS = "0123456789"
-let CHARS  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ%./;,\"'=^\\?&P[]"
+let CHARS  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ%./;,\"'=^\\?&P[]☭"
 
 type
   lexer* = object

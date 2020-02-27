@@ -195,9 +195,11 @@ proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1) =
             if (pdf_line.len - 1) != 0:
               var needs = ( column_size - get_text_size(join(pdf_line[0..^2], " ").strip(), size, file.font_face))
               word_spacing = (needs / (len(pdf_line[0..^3])).toFloat())
-            var char_spacing = 0
-            if len(pdf_line.join(" ").strip.split(" ")) < 2:
-              char_spacing = (( column_size - get_text_size(pdf_line[0], size, file.font_face)) / (len(pdf_line[0]) - 2).toFloat).toInt
+            if $word_spacing == "inf":
+              word_spacing = 0
+            var char_spacing: float = 0
+            if len(pdf_line) < 3:
+              char_spacing = (( column_size - get_text_size(pdf_line[0], size, file.font_face)) / (len(pdf_line[0])).toFloat)
             text_obj.append_text(&"{word_spacing} {char_spacing} ({join(pdf_line[0..^2], \" \").addbs()}) \"\n")
             file.y -= size + file.line_spacing
             pdf_line = @[word]

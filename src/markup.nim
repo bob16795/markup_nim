@@ -1,8 +1,7 @@
 import parseopt, lists, tables, os, re
 import strformat, strutils
-import lexer, parser
+import lexer, parser, nodes, tokenclass
 import interpreter
-#import nimprof
 
 var p = initOptParser()
 
@@ -21,6 +20,8 @@ proc help(msg: int, app_name: string = "markup") =
     echo ""
     echo "-h,\t--help\tShow this message and exit."
     echo "-p,\t--prop\tPrepend properties to document."
+    echo "-t,\t--tree\tporints the ast and exits."
+    echo "-k,\t--token-tree\tporints the tokens and exits."
     echo ""
   else:
     discard
@@ -28,8 +29,8 @@ proc help(msg: int, app_name: string = "markup") =
 
 var wrote = 0
 
-proc compile(file: string, prop: Table[string, string], wd: string) = 
-  echo "compile: ", file
+proc compile(file: string, prop: Table[string, string], wd: string, tree: int) = 
+  echo "compile: ", file, ", ", tree
   var lexer_obj = initLexer(readFile(wd & "/" & file), file)
   var toks = runLexer(lexer_obj)
   var parser_obj = initParser(toks, -1)
@@ -38,36 +39,51 @@ proc compile(file: string, prop: Table[string, string], wd: string) =
   var use = output.props["use"]
   var output_file = output.props["output"]
   var ignore = output.props["ignore"]
-  if ignore != "True":
-    if output_file == "":
-      echo output.file
-    else:
-      echo "Writing: ", output_file
-      writeFile(wd & "/" & output_file, output.file)
-      wrote += 1
-  if use != "":
-    for text in use.split(";"):
-      var pattern = text.strip()
-      var path = wd
-      if pattern[0] == '/':
-        path = "/" & join(pattern.split("/")[0..^2], "/")
+  case tree:
+  of 0:
+    if ignore != "True":
+      if output_file == "":
+        echo output.file
       else:
-        path = wd & "/" & join(pattern.split("/")[0..^2], "/")
-      pattern = pattern.split("/")[^1]
-      var add = false
-      for file_full in walkDirRec(path):
-        var file_name = file_full.split("/")[^1]
-        if match(file_name, re(pattern)):
-          compile(file_name, prop, path)
+        echo "Writing: ", output_file
+        writeFile(wd & "/" & output_file, output.file)
+        wrote += 1
+    if use != "":
+      for text in use.split(";"):
+        var pattern = text.strip()
+        var path = wd
+        if pattern[0] == '/':
+          path = "/" & join(pattern.split("/")[0..^2], "/")
+        else:
+          path = wd & "/" & join(pattern.split("/")[0..^2], "/")
+        pattern = pattern.split("/")[^1]
+        var add = false
+        for file_full in walkDirRec(path):
+          var file_name = file_full.split("/")[^1]
+          if match(file_name, re(pattern)):
+            compile(file_name, prop, path, tree)
+  of 1:
+    echo $ast
+  of 2:
+    echo $toks
+  else:
+    echo "weirdo"
 
 proc main() =
+  var tree = 0
   var prev = ""
   var prop = initTable[string, string]()
   for kind, key, val in p.getopt():
     case kind:
     of cmdEnd: doAssert(false)
     of cmdShortOption, cmdLongOption:
-      prev = key
+      case key:
+      of "t", "tree":
+        tree = 1
+      of "k", "token-tree":
+        tree = 2
+      else:
+        prev = key
     of cmdArgument:
       if prev == "":
         files.add(key) 
@@ -91,7 +107,7 @@ proc main() =
     of "h", "help":
       help(2)
   for file in files:
-    compile(file, prop, getCurrentDir())
+    compile(file, prop, getCurrentDir(), tree)
     echo "DONE\n\nwrote ", $wrote, " files\n"
   if files.len < 1:
     help(1)

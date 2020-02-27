@@ -49,8 +49,8 @@ proc set_prop(props: var Table[string, string], file: var pdf_file, prop: string
     file.header = value.strip().split(",")
   of "footer":
     file.footer = value.strip().split(",")
-  of "prepend":
-    echo value.strip()
+  # of "prepend":
+  #   echo value.strip()
 
 proc `in`(value: string, ctx: context): bool =
   for mac in ctx.macros:
@@ -76,7 +76,6 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
       props.set_prop(file, node.prop.strip(), node.value.strip())
       return
   of nkTag:
-    echo "tagus: ", node
     case node.tag_name:
     of "MAC":
       if "=" in node.tag_value:
@@ -84,7 +83,6 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
         var name, value, text: string
         text = node.tag_value.split("=")[0..^2].join("=")
         amac.name = node.tag_value.split("=")[^1].strip()
-        echo "name: ", amac.name
         for tag in text.split(";"):
           name = tag.split(":")[0].strip()
           value = ""
@@ -95,16 +93,15 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
           ctx.macros.add(amac)
     of "CNT":
       # <CNT: Prop, by: Value>
-      var value = node.tag_value.split(", by:")[0].strip()
-      try:
-        var to = node.tag_value.split(", by:")[1].strip()
+      var value = node.tag_value.split("=")[0].strip
+      if "=" in node.tag_value:
+        var to = node.tag_value.split("=")[1].strip()
         for key, value in props:
           to = to.replace(key, value)
           ctx.counters[value] = to.parseInt()
-      except:
+      else:
         ctx.counters[value] = 1
     of "SET":
-      echo "SET: ", node.tag_value
       # <SET: Prop = Value>
       var value = node.tag_value.split("=")[0].strip()
       if "=" in node.tag_value:
@@ -146,10 +143,8 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
       var ran = false
       for maca in ctx.macros:
         if maca.name == node.tag_name:
-          echo "tagus: ", maca
           ran = true
           for tag in maca.tags:
-            echo "tagus: ", tag
             var value = tag[1]
             var i = 0
             for arg in node.tag_value.split(","):
@@ -174,23 +169,22 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
       var add = false
       echo "PATH: ", path
       for file_full in walkDir(path, false):
-        echo "FULL: ", file_full
         var file_name = file_full[1].split("/")[^1]
         if match(file_name, re(pattern)):
-          #try:
-            add = true
-            echo "include: " & file_name & ", " & node.text[4..len(node.text)-1].strip()
-            var lexer_obj = initLexer(readFile(file_full[1]), file_full[1])
-            var toks = runLexer(lexer_obj)
-            var parser_obj = initParser(toks, -1)
-            var ast = parser_obj.runParser()
-            for new_node in ast.Contains:
-              visit(new_node, file, props, ctx)
-          # except:
-          #   echo "lol"
+          add = true
+          echo "include: " & file_name & ", " & node.text[4..len(node.text)-1].strip()
+          var lexer_obj = initLexer(readFile(file_full[1]), file_full[1])
+          var toks = runLexer(lexer_obj)
+          var parser_obj = initParser(toks, -1)
+          var ast = parser_obj.runParser()
+          for new_node in ast.Contains:
+            var wd = ctx.wd
+            ctx.wd = path
+            visit(new_node, file, props, ctx)
+            ctx.wd = wd
       props["slave"] = slave_start
       if add == false:
-        echo "warn"
+        echo "warn: Inc followed no files"
   of nkEquation:
     file.add_equation(node.text)
     text = ""
@@ -202,11 +196,14 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
       for key, value in props:
         text = text.replace("()" & key & "()", value)
       for counter, by in ctx.counters:
+        # echo counter, ": ", by, " = ", props[counter]
         if counter in props:
           try:
             props[counter] = $(props[counter].parseInt() + by)
           except:
             props[counter] = "0"
+        else:
+          props[counter] = "0"
       file.add_text(text, 12)
       text = ""
   of nkTextLine:

@@ -84,7 +84,9 @@ proc `$`*(nod: Node): string =
     node_value = $nod.text
   of nkBody, nkPropSec, nkList, nkTextSec:
     for node in nod.Contains:
-      node_value = node_value & $node
+      node_value &= "\n  " & ($node)
+    node_value &= "\n"
+    node_value = node_value
   of nkNone, nkPropDiv, nkTextParEnd:
     node_value = "None"
   of nkTag:
@@ -94,7 +96,7 @@ proc `$`*(nod: Node): string =
       node_value = nod.condition.strip() & " == " & $not(nod.invert) & " then " & nod.prop.strip() & " = " & nod.value.strip()
     else:
       node_value = nod.prop.strip() & " = " & nod.value.strip()
-  return "<" & node_type & ": " & node_value & ">"
+  return ("<" & node_type & ": " & node_value & ">").replace("><", ">\n<")
     
 
 # proc len*(list: SinglyLinkedList[Node]): int = 
