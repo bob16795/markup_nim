@@ -13,7 +13,7 @@ type
 
   position* = object
     idx*, ln, col: int
-    fn, ftxt: string
+    fn*, ftxt: string
 
 proc reversed(s: string): string =
   result = newString(s.len)

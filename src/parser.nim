@@ -1,4 +1,5 @@
 import nodes, output, tokenclass
+import sequtils
 
 type
   parser* = object
@@ -242,6 +243,97 @@ proc alphaNumSymMoreParser(psr: var parser): Node =
   if text == "":
     return Node(kind: nkNone)
   return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
+
+
+proc tableSplitParser(psr: var parser): Node =
+  var start_pos = psr.c_tok.pos_start
+  var error = false
+  var ratio: seq[int]
+  var col = 0
+  while not error:
+    error = true
+    if psr.c_tok.ttype == "tt_bar":
+      psr.advance()
+      col += 1
+      ratio.add(0)
+      while psr.c_tok.ttype == "tt_minus":
+        psr.advance()
+        error = false
+        ratio[^1] += 1
+      if error == true:
+        psr.advance(-1)
+  if psr.c_tok.ttype != "tt_bar":
+    return Node(kind: nkNone)
+  psr.advance()
+  if psr.c_tok.ttype != "tt_newline":
+    return Node(kind: nkNone)
+  var end_pos = psr.c_tok.pos_start
+  psr.advance()
+  return Node(start_pos: start_pos,
+              end_pos: end_pos,
+              kind: nkTableSplit,
+              split_ratio: ratio)
+
+proc tableRowParser(psr: var parser): Node =
+  var start_pos = psr.c_tok.pos_start
+  var error = false
+  var text: seq[string]
+  var node: Node
+  while error == false:
+    error = true
+    if psr.c_tok.ttype == "tt_bar":
+      psr.advance()
+      node = psr.alphaNumSymParser()
+      if node.kind != nkNone:
+        text.add(node.text)
+        error = false
+      else:
+         psr.advance(-1)
+  if text == []:
+      return Node(kind: nkNone)
+  if psr.c_tok.ttype != "tt_bar":
+      return Node(kind: nkNone)
+  psr.advance()
+  if psr.c_tok.ttype != "tt_newline":
+          return Node(kind: nkNone)
+  var end_pos = psr.c_tok.pos_start
+  psr.advance()
+  return Node(start_pos: start_pos,
+              end_pos: end_pos,
+              kind: nkTableRow,
+              row_columns: text)
+
+proc tableTopParser(psr: var parser): Node =
+  var start_pos = psr.c_tok.pos_start
+  var heading = psr.tableRowParser()
+  if heading.kind == nkNone:
+    return Node(kind: nkNone)
+  var split = psr.tableSplitParser()
+  if split.kind == nkNone:
+    return Node(kind: nkNone)
+  return Node(start_pos: start_pos,
+              end_pos: psr.c_tok.pos_start,
+              kind: nkTableHeader,
+              header_columns: heading.row_columns,
+              ratio: split.split_ratio,
+              total: (split.split_ratio.foldl(a + b)))
+
+proc textTableParser(psr: var parser): Node =
+  var start_pos = psr.c_tok.pos_start
+  var rows: seq[Node]
+  var node = psr.tableTopParser()
+  if node.kind == nkNone:
+    return Node(kind: nkNone)
+  var top = node
+  while node.kind != nkNone:
+    rows.add(node)
+    node = psr.tableRowParser()
+  if len(rows) < 2:
+    return Node(kind: nkNone)
+  return Node(start_pos: start_pos,
+              end_pos: psr.c_tok.pos_start,
+              kind: nkTable,
+              rows: top & rows)
 
 proc propLineParser(psr: var parser): Node =
   var start_condition, start_statment, end_statment = psr.c_tok.pos_start
@@ -602,8 +694,8 @@ proc textSecParser(psr: var parser): Node =
     node = psr.textLineParser()
   if node.kind == nkNone:
     node = psr.textHeadingParser()
-  # if node.kind == nkNone:
-  #   node = psr.textTableParser()
+  if node.kind == nkNone:
+    node = psr.textTableParser()
   if node.kind == nkNone:
     return Node(kind: nkNone)
   var Nodes: seq[Node]
@@ -620,8 +712,8 @@ proc textSecParser(psr: var parser): Node =
       node = psr.textLineParser()
     if node.kind == nkNone:
       node = psr.textHeadingParser()
-    # if node.kind == nkNone:
-    #   node = psr.textTableParser()
+    if node.kind == nkNone:
+      node = psr.textTableParser()
   node = psr.textParEndParser()
   if node.kind == nkNone:
     return Node(kind: nkNone)
@@ -650,6 +742,7 @@ proc bodyParser(psr: var parser): Node =
               end_pos: psr.c_tok.pos_start,
               kind: nkBody,
               Contains: Nodes)
+
 
 proc runParser*(psr: var parser): Node =
   return psr.bodyParser

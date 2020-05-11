@@ -6,24 +6,25 @@ type
   int_return* = object
     file*: string
     props*: Table[string, string]
-  mac = object
-    name: string
-    tags: seq[array[0..1, string]]
-  context = object
-    macros: seq[mac]
-    counters: Table[string, int]
-    wd: string
+  mac* = object
+    name*: string
+    tags*: seq[array[0..1, string]]
+  context* = object
+    macros*: seq[mac]
+    counters*: Table[string, int]
+    wd*: string
+    tab*: table
 
 var file: pdf_file
 var props: Table[string, string]
 var text: string
 var visits = 0
 
-proc to_macro(props: var Table[string, string], prop: string): string =
-  result = prop
+proc to_macro(props: var Table[string, string], value: string): string =
+  result = value
   result = result.replace("\\n", "\n")
-  if re.match(prop, re"<*:*>"):
-    discard
+  # if re.match(prop, re"<*:*>"):
+  #   discard
 
 proc initOutput(file: var pdf_file, props: var Table[string, string]): int_return =
   result.file = $file
@@ -52,6 +53,11 @@ proc set_prop(props: var Table[string, string], file: var pdf_file, prop: string
   # of "prepend":
   #   echo value.strip()
 
+proc `[]`(ctx: context, value: string): mac =
+  for mac in ctx.macros:
+    if value == mac.name:
+      return mac
+
 proc `in`(value: string, ctx: context): bool =
   for mac in ctx.macros:
     if value == mac.name:
@@ -78,6 +84,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
   of nkTag:
     case node.tag_name:
     of "MAC":
+      # <MAC: SET: lol=2;SET: nope=3;COL: 4 ;= STUFF>
       if "=" in node.tag_value:
         var amac: mac
         var name, value, text: string
@@ -93,12 +100,10 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
           ctx.macros.add(amac)
     of "CNT":
       # <CNT: Prop, by: Value>
-      var value = node.tag_value.split("=")[0].strip
+      var value = node.tag_value.split("=")[0].strip()
       if "=" in node.tag_value:
         var to = node.tag_value.split("=")[1].strip()
-        for key, value in props:
-          to = to.replace(key, value)
-          ctx.counters[value] = to.parseInt()
+        ctx.counters[value] = to.parseInt()
       else:
         ctx.counters[value] = 1
     of "SET":
@@ -108,10 +113,9 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
         var to = node.tag_value.split("=")[1].strip()
         if to in props:
           to = props[to]
-          props.set_prop(file, value, to)
-        else:
-          props.set_prop(file, value, "")
-          return
+        props.set_prop(file, value, to)
+      else:
+        props.set_prop(file, value, "")
     of "CPT":
       # <CPT: Name>
       file.add_heading(node.tag_value, -1)
@@ -128,8 +132,11 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
       except:
         file.add_line(10, 10)
     of "LINEBR":
-      # <PAG>
+      # <LINEBR>
       file.add_text("", 12)
+    of "COLBR":
+      # <COLBR>
+      file.next_col()
     of "IDX":
       # <IDX: entry1; entry2 ...>
       file.add_index_entry(node.tag_value)
@@ -140,20 +147,33 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
       except:
         file.set_cols(1)
     else:
-      var ran = false
-      for maca in ctx.macros:
-        if maca.name == node.tag_name:
-          ran = true
+      var maca: mac
+      try:
+        maca = ctx[node.tag_name.strip()]
+      except:
+        echo "weird tag: ", node.tag_name, " in: ", node.start_pos.fn
+      finally:
+        if maca.name == node.tag_name.strip():
           for tag in maca.tags:
             var value = tag[1]
             var i = 0
             for arg in node.tag_value.split(","):
               i += 1
               value = value.replace(&"%{i}", arg)
-              var new_node = Node(kind: nkTag, tag_name: tag[0], tag_value: value)
-              visit(new_node, file, props, ctx)
-      if not(ran):
-        echo "weird tag: ", node.tag_name
+            var new_node = Node(kind: nkTag, tag_name: tag[0], tag_value: value)
+            visit(new_node, file, props, ctx)
+  of nkTable:
+    file.add_space(12)
+    visit(node.rows[0], file, props, ctx)
+    for row in node.rows[1..^1]:
+      visit(row, file, props, ctx)
+    file.add_table(ctx.tab)
+  of nkTableHeader:
+    var col_size = ((file.media_box[0]-200).toFloat() - (file.column_spacing * (file.columns - 1).toFloat())) / file.columns.toFloat()
+    var col_x = ((col_size + file.column_spacing) * (file.current_column - 1).toFloat()) + 100.0
+    ctx.tab = initTableObject(col_x, file.y, col_size, len(node.header_columns), node.ratio)
+  of nkTableRow:
+    ctx.tab.append(node.row_columns)
   of nkTextComment:
     if node.text.split(":")[0] == "Inc":
       var slave_start = props["slave"]
@@ -165,9 +185,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
       else:
         path = ctx.wd & "/" & join(pattern.split("/")[0..^2], "/")
       pattern = pattern.split("/")[^1]
-      echo "pattern: ", pattern
       var add = false
-      echo "PATH: ", path
       for file_full in walkDir(path, false):
         var file_name = file_full[1].split("/")[^1]
         if match(file_name, re(pattern)):
@@ -192,17 +210,13 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
     if text != "\b" and text != "":
       text = "[]prepend[]" & text
       for key, value in props:
-        text = text.replace("[]" & key & "[]", props.toMacro(value))
+        text = text.replace("[]" & key & "[]", value)
       for key, value in props:
         text = text.replace("()" & key & "()", value)
       for counter, by in ctx.counters:
-        # echo counter, ": ", by, " = ", props[counter]
-        if counter in props:
-          try:
-            props[counter] = $(props[counter].parseInt() + by)
-          except:
-            props[counter] = "0"
-        else:
+        try:
+          props[counter] = $(props[counter].parseInt() + by)
+        except:
           props[counter] = "0"
       file.add_text(text, 12)
       text = ""

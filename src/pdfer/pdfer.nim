@@ -25,6 +25,14 @@ type
     toc*: OrderedTable[string, array[0..1, int]]
     header*, footer*: seq[string]
     y*, y_start*: float
+  table* = object
+    data*: seq[seq[string]]
+    heading*: seq[string]
+    offset*: array[0..1, float]
+    dims*: array[0..1, int]
+    width*, height*: float
+    ratio*: seq[int]
+    font_face*: string
 
 proc add_page*(file: var pdf_file, text: string = "", size: float = -1, odd: int = -1)
 proc add_index*(file: var pdf_file, offset: int = 0)
@@ -33,6 +41,76 @@ proc add_space*(file: var pdf_file, space: float)
 proc make_toc*(file: var pdf_file, offset: int): pdf_file
 proc make_title(file: var pdf_file)
 proc init_pdf_file*(): pdf_file
+
+proc get_pdf_objs(tab: var table): seq[pdf_object] = 
+  var line_y = 0.0
+  for row in tab.data:
+    var max_row_y = 0.0
+    result.add(initLineObject(1, [tab.offset[0]+tab.width, tab.offset[0]], [tab.offset[1]-line_y, tab.offset[1]-line_y]))
+    for i, cell in row:
+      var cell_width = tab.width / (tab.ratio.foldl(a + b)).toFloat() * tab.ratio[i].toFloat()
+      var cell_x: float
+      try:
+        cell_x = tab.offset[0] + (tab.width / (tab.ratio.foldl(a + b)).toFloat() * (tab.ratio[0..<i].foldl(a + b)).toFloat())
+      except:
+        cell_x = tab.offset[0]
+      var text_obj = initTextObject()
+      text_obj.append_text(&"BT\n{12 + 2.4} TL\n/F1 {12} Tf\n{cell_x + 1} {tab.offset[1] + 3.4 - line_y} Td\n")
+      var line = ""
+      var line_y_temp = 0.0
+      var size: float
+      var text: string
+      for word in cell.split(" "):
+        line &= word & " "
+        size = lib.get_text_size(line, 12, tab.font_face)
+        if size > cell_width - 2:
+          line_y_temp += 14.4
+          line = line[0..^2]
+          text = join(line.split(" ")[0..^2],  " ")
+          text_obj.append_text(&"0 0 ({text}) \"\n")
+          line = word & " "
+      if line != "":
+        text = line[0..^2]
+        text_obj.append_text(&"0 0 ({text}) \"\n%LOL\n")
+        line_y_temp += 12 + 2.4
+        text_obj.append_text("ET\n")
+        result.add(text_obj)
+      if line_y_temp > max_row_y:
+        max_row_y = line_y_temp
+    var x: float
+    for i in 0..<tab.dims[0]:
+      try:
+        x =  tab.offset[0] + (tab.width / (tab.ratio.foldl(a + b)).toFloat() * (tab.ratio[0..<i].foldl(a + b)).toFloat())
+      except:
+        x =  tab.offset[0]
+      result.add(initLineObject(1, [x+0.5, x+0.5], [tab.offset[1]-line_y, tab.offset[1]-line_y-max_row_y - 1]))
+    result.add(initLineObject(1, [tab.offset[0]+tab.width - (0.5), tab.offset[0]+tab.width - (0.5)], [tab.offset[1]-line_y, tab.offset[1]-line_y-max_row_y - 1]))
+    line_y += max_row_y + 1
+  result.add(initLineObject(1, [tab.offset[0]+tab.width, tab.offset[0]], [tab.offset[1]-line_y, tab.offset[1]-line_y]))
+  tab.height = line_y + 12
+
+proc add_table*(file: var pdf_file, tab: var table) = 
+  discard tab.get_pdf_objs()
+  file.y -= tab.height
+  if file.y < 100:
+      if file.current_column >= file.columns:
+          file.current_column = 1
+          file.add_page()
+      else:
+          file.current_column += 1
+          file.y = file.y_start
+      tab.offset[1] = file.y
+  var column_size = ((file.media_box[0]-200) - (file.column_spacing.toInt() * (file.columns - 1))) / file.columns
+  var col_x = ((column_size + file.column_spacing).toInt() * (file.current_column - 1)) + 100 
+  tab.offset[0] = col_x.toFloat()
+  file.y -= tab.height - 12.0
+  file.text_objs.add(tab.get_pdf_objs())
+  for obj in tab.get_pdf_objs():
+    file.page_objs[^1].append("/Contents", obj)
+
+proc append*(tab: var table, row: seq[string]) =
+  tab.dims[1] += 1
+  tab.data.add(row)
 
 proc tocCmp(x, y: (string, array[0..1, int])): int =
   if x[1][1] < y[1][1]: -1 else: 1
@@ -91,6 +169,13 @@ proc set_cols*(file: var pdf_file, cols: int) =
     file.y_start = file.y
     file.columns = cols
     file.current_column = 1
+
+proc next_col*(file: var pdf_file) =
+  if file.current_column >= file.columns:
+    file.current_column = 1
+  else:
+    file.current_column += 1
+    file.y = file.y_start
 
 proc sequence(file: var pdf_file): seq[pdf_object] =
   result = newSeq[pdf_object]()
@@ -396,3 +481,11 @@ proc init_pdf_file*(): pdf_file =
   result.header = @["{page_number}", "{part}", "{chapter}"]
   result.footer = @["{author}", "", "{title}"]
   result.add_page()
+
+proc initTableObject*(offset_x, offset_y, width: float, y: int, ratio: seq[int]): table =
+  result.data = @[]
+  result.heading = @[]
+  result.offset = [offset_x, offset_y]
+  result.dims = [y, 0]
+  result.width = width
+  result.ratio = ratio[0..^1]

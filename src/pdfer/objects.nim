@@ -1,4 +1,4 @@
-import md5, tables, strutils
+import md5, tables, strutils, strformat
 
 type
   pdf_object* = object of RootObj
@@ -63,6 +63,10 @@ proc initTextObject*(): pdf_object =
 
 proc initStringObject*(text: string): pdf_object =
   result.str = text
+
+proc initLineObject*(width: float, x, y: array[0..1, float]): pdf_object =
+  result.stream = ""
+  result.append_text(&"{width} w\n{x[0]} {y[0]} m\n{x[1]} {y[1]} l\nS")
 
 proc initFontObject*(name: string): pdf_object =
     discard """

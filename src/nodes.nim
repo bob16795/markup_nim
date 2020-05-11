@@ -21,6 +21,10 @@ type
     nkListLevel1,   # list level 1                  leaf
     nkListLevel2,   # list level 2                  leaf
     nkListLevel3,   # list level 3                  leaf
+    nkTable,        # list                          branch
+    nkTableRow,     # table row                     leaf
+    nkTableHeader,  # table heading                 branch
+    nkTableSplit,   # table heading                 leaf
     nkNone,         # an empty node                 leaf
   Node* = object
     start_pos*, end_pos*: position
@@ -35,6 +39,16 @@ type
       invert*: bool
       condition*, prop*, value*: string
       start_condition*, start_statment*, end_statment*: position
+    of nkTable:
+      rows*: seq[Node]
+    of nkTableHeader:
+      ratio*: seq[int]
+      total*: int
+      header_columns*: seq[string]
+    of nkTableRow:
+      row_columns*: seq[string]
+    of nkTableSplit:
+      split_ratio*: seq[int]
     of nkNone, nkPropDiv, nkTextParEnd:
       discard
 
@@ -79,6 +93,14 @@ proc `$`*(nod: Node): string =
     node_type = "List Level 2"
   of nkListLevel3:
     node_type = "List Level 3"
+  of nkTable:
+    node_type = "Table"
+  of nkTableRow:
+    node_type = "TableRow"
+  of nkTableHeader:
+    node_type = "TableHeader"
+  of nkTableSplit:
+    node_type = "TableSplit"
   case nod.kind:
   of nkEquation, nkAlphaNumSym, nkTextLine, nkTextComment, nkHeading1, nkHeading2, nkHeading3, nkListLevel1, nkListLevel2, nkListLevel3:
     node_value = $nod.text
@@ -87,7 +109,7 @@ proc `$`*(nod: Node): string =
       node_value &= "\n  " & ($node)
     node_value &= "\n"
     node_value = node_value
-  of nkNone, nkPropDiv, nkTextParEnd:
+  of nkNone, nkPropDiv, nkTextParEnd, nkTable, nkTableRow, nkTableHeader, nkTableSplit:
     node_value = "None"
   of nkTag:
     node_value = nod.tag_name.strip() & " == " & nod.tag_value.strip()

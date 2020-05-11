@@ -31,11 +31,16 @@ var wrote = 0
 
 proc compile(file: string, prop: Table[string, string], wd: string, tree: int) = 
   echo "compile: ", file, ", ", tree
-  var lexer_obj = initLexer(readFile(wd & "/" & file), file)
+  var cwd = wd
+  var file_new = file
+  if file[0] == '/':
+    cwd = file.split("/")[0..^2].join("/")
+    file_new = file.split("/")[^1]
+  var lexer_obj = initLexer(readFile(cwd & "/" & file_new), file_new)
   var toks = runLexer(lexer_obj)
   var parser_obj = initParser(toks, -1)
   var ast = parser_obj.runParser()
-  var output = visitBody(ast, file, wd, prop)
+  var output = visitBody(ast, file_new, cwd, prop)
   var use = output.props["use"]
   var output_file = output.props["output"]
   var ignore = output.props["ignore"]
@@ -46,16 +51,16 @@ proc compile(file: string, prop: Table[string, string], wd: string, tree: int) =
         echo output.file
       else:
         echo "Writing: ", output_file
-        writeFile(wd & "/" & output_file, output.file)
+        writeFile(cwd & "/" & output_file, output.file)
         wrote += 1
     if use != "":
       for text in use.split(";"):
         var pattern = text.strip()
-        var path = wd
+        var path = cwd
         if pattern[0] == '/':
           path = "/" & join(pattern.split("/")[0..^2], "/")
         else:
-          path = wd & "/" & join(pattern.split("/")[0..^2], "/")
+          path = cwd & "/" & join(pattern.split("/")[0..^2], "/")
         pattern = pattern.split("/")[^1]
         var add = false
         for file_full in walkDirRec(path):
