@@ -7,8 +7,6 @@ type
     tok_idx: int
     c_tok: Token
 
-var psr: parser
-
 proc advance(psr: var parser, by: int = 1) =
   psr.tok_idx = psr.tok_idx + by
   if psr.tok_idx < len(psr.tokens):
@@ -27,10 +25,9 @@ proc goto(psr: var parser, to: int = 1) =
 
 
 proc initParser*(tokens: seq[Token], tok_idx: int): parser =
-  psr.tokens = tokens
-  psr.tok_idx = tok_idx
-  psr.advance()
-  return psr
+  result.tokens = tokens
+  result.tok_idx = tok_idx
+  result.advance()
 
 proc alphaNumSymParser(psr: var parser): Node =
   var text = ""

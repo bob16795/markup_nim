@@ -1,8 +1,5 @@
 import tokenclass, output
 
-let DIGITS = "0123456789"
-let CHARS  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ%./;,\"'=^\\?&P[]☭"
-
 type
   lexer* = object
     text: string
@@ -23,6 +20,7 @@ proc initLexer*(text: string, fn: string): lexer =
   advanceLexer(result)
 
 proc constructTextToken(lex: var lexer): Token =
+  let CHARS  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ%./;,\"'=^\\?&P[]☭"
   var text_str = ""
   #var lex
   var pos_start = lex.pos
@@ -32,6 +30,7 @@ proc constructTextToken(lex: var lexer): Token =
   return initToken("tt_text", text_str, pos_start, lex.pos)
 
 proc constructNumToken(lex: var lexer): Token =
+  let DIGITS = "0123456789"
   var text_str = ""
   var pos_start = lex.pos
   while lex.c_char != '\b' and lex.c_char in DIGITS & ". ":
@@ -40,6 +39,8 @@ proc constructNumToken(lex: var lexer): Token =
   return initToken("tt_text", text_str, pos_start, lex.pos)
 
 proc runLexer*(lex: var lexer): seq[Token] =
+  let DIGITS = "0123456789"
+  let CHARS  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ%./;,\"'=^\\?&P[]☭"
   var tokens = newSeq[Token]()
   while lex.c_char != '\b':
     case lex.c_char:

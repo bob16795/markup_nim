@@ -15,11 +15,6 @@ type
     wd*: string
     tab*: table
 
-var file: pdf_file
-var props: Table[string, string]
-var text: string
-var visits = 0
-
 proc to_macro(props: var Table[string, string], value: string): string =
   result = value
   result = result.replace("\\n", "\n")
@@ -64,14 +59,13 @@ proc `in`(value: string, ctx: context): bool =
       return true
   return false
 
-proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx: var context) =
-  visits += 1
+proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx: var context, text: var string) =
   case node.kind:
   of nkPropDiv:
     discard
   of nkPropSec, nkTextSec, nkList:
     for i in node.Contains:
-      visit(i, file, props, ctx)
+      visit(i, file, props, ctx, text)
   of nkPropLine:
     if node.condition == "":
       props.set_prop(file, node.prop.strip(), node.value.strip())
@@ -161,12 +155,12 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
               i += 1
               value = value.replace(&"%{i}", arg)
             var new_node = Node(kind: nkTag, tag_name: tag[0], tag_value: value)
-            visit(new_node, file, props, ctx)
+            visit(new_node, file, props, ctx, text)
   of nkTable:
     file.add_space(12)
-    visit(node.rows[0], file, props, ctx)
+    visit(node.rows[0], file, props, ctx, text)
     for row in node.rows[1..^1]:
-      visit(row, file, props, ctx)
+      visit(row, file, props, ctx, text)
     file.add_table(ctx.tab)
   of nkTableHeader:
     var col_size = ((file.media_box[0]-200).toFloat() - (file.column_spacing * (file.columns - 1).toFloat())) / file.columns.toFloat()
@@ -198,7 +192,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
           for new_node in ast.Contains:
             var wd = ctx.wd
             ctx.wd = path
-            visit(new_node, file, props, ctx)
+            visit(new_node, file, props, ctx, text)
             ctx.wd = wd
       props["slave"] = slave_start
       if add == false:
@@ -240,6 +234,9 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
     initError(node.start_pos, node.end_pos, "Not Implemented", "'visit" & $node.kind & "'")
 
 proc visitBody*(node: Node, file_name: string, wd: string, prop_pre: Table[string, string]): int_return =
+  var file: pdf_file
+  var props: Table[string, string]
+  var text: string
   props["output"] = ""
   props["font_face"] = ""
   props["use"] = ""
@@ -252,7 +249,7 @@ proc visitBody*(node: Node, file_name: string, wd: string, prop_pre: Table[strin
   for node in node.Contains:
     var ctx: context
     ctx.wd = wd
-    visit(node, file, props, ctx)
+    visit(node, file, props, ctx, text)
   for prop, value in prop_pre:
     props.set_prop(file, prop, value)
   return initOutput(file, props)

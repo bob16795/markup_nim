@@ -34,13 +34,13 @@ type
     ratio*: seq[int]
     font_face*: string
 
-proc add_page*(file: var pdf_file, text: string = "", size: float = -1, odd: int = -1)
-proc add_index*(file: var pdf_file, offset: int = 0)
-proc get_toc_size*(file: var pdf_file): int
-proc add_space*(file: var pdf_file, space: float)
-proc make_toc*(file: var pdf_file, offset: int): pdf_file
-proc make_title(file: var pdf_file)
-proc init_pdf_file*(): pdf_file
+proc add_page*(file: var pdf_file, text: string = "", size: float = -1, odd: int = -1) {.gcsafe.}
+proc add_index*(file: var pdf_file, offset: int = 0) {.gcsafe.}
+proc get_toc_size*(file: var pdf_file): int {.gcsafe.}
+proc add_space*(file: var pdf_file, space: float) {.gcsafe.}
+proc make_toc*(file: var pdf_file, offset: int): pdf_file {.gcsafe.}
+proc make_title(file: var pdf_file) {.gcsafe.}
+proc init_pdf_file*(): pdf_file {.gcsafe.}
 
 proc get_pdf_objs(tab: var table): seq[pdf_object] = 
   var line_y = 0.0

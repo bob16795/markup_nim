@@ -1,7 +1,7 @@
 import sdl2/sdl_ttf as ttf
 import strutils, segfaults, tables
 
-var faces: Table[cint, ttf.Font]
+var faces {.threadvar.}: Table[cint, ttf.Font]
 
 proc lib_init*() =
   discard ttf.init()

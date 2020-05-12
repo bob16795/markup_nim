@@ -1,7 +1,8 @@
 import parseopt, lists, tables, os, re
 import strformat, strutils
 import lexer, parser, nodes, tokenclass
-import interpreter
+import interpreter, threadpool
+{.experimental: "parallel".}
 
 var p = initOptParser()
 
@@ -27,7 +28,7 @@ proc help(msg: int, app_name: string = "markup") =
     discard
   quit()
 
-var wrote = 0
+var wrote: int
 
 proc compile(file: string, prop: Table[string, string], wd: string, tree: int) = 
   echo "compile: ", file, ", ", tree
@@ -111,9 +112,11 @@ proc main() =
       echo "invalid argument ", prev
     of "h", "help":
       help(2)
-  for file in files:
-    compile(file, prop, getCurrentDir(), tree)
-    echo "DONE\n\nwrote ", $wrote, " files\n"
+  wrote = 0
+  parallel:
+    for file in files:
+      spawn compile(file, prop, getCurrentDir(), tree)
+  echo "DONE\n\nwrote ", $wrote, " files\n"
   if files.len < 1:
     help(1)
 main()
