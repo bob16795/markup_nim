@@ -20,11 +20,10 @@ proc initLexer*(text: string, fn: string): lexer =
   advanceLexer(result)
 
 proc constructTextToken(lex: var lexer): Token =
-  let CHARS  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ%./;,\"'=^\\?&P[]☭"
+  let EXCHARS  = "#\t*+-_:|<>(){}!$\n"
   var text_str = ""
-  #var lex
   var pos_start = lex.pos
-  while lex.c_char != '\b' and lex.c_char in CHARS & " ":
+  while lex.c_char != '\b' and not(lex.c_char in EXCHARS[1..^1]):
     text_str = text_str & lex.c_char
     advanceLexer(lex)
   return initToken("tt_text", text_str, pos_start, lex.pos)
@@ -40,7 +39,6 @@ proc constructNumToken(lex: var lexer): Token =
 
 proc runLexer*(lex: var lexer): seq[Token] =
   let DIGITS = "0123456789"
-  let CHARS  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ%./;,\"'=^\\?&P[]☭"
   var tokens = newSeq[Token]()
   while lex.c_char != '\b':
     case lex.c_char:
@@ -99,22 +97,20 @@ proc runLexer*(lex: var lexer): seq[Token] =
       tokens.add(initToken("tt_newline", "", lex.pos, advancePos(lex.pos, lex.c_char)))
       advanceLexer(lex)
       while lex.c_char != '\b':
+        if lex.c_char == ' ':
+          advanceLexer(lex)
           if lex.c_char == ' ':
-              advanceLexer(lex)
-              if lex.c_char == ' ':
-                  tokens.add(initToken("tt_ident", "", lex.pos, advancePos(lex.pos, lex.c_char)))
-                  advanceLexer(lex)
-              else:
-                  tokens.add(initToken("tt_text", " ", lex.pos, advancePos(lex.pos, lex.c_char)))
-                  advanceLexer(lex)
-                  break
+            tokens.add(initToken("tt_ident", "", lex.pos, advancePos(lex.pos, lex.c_char)))
+            advanceLexer(lex)
           else:
-              break
+            tokens.add(initToken("tt_text", " ", lex.pos, advancePos(lex.pos, lex.c_char)))
+            advanceLexer(lex)
+            break
+        else:
+          break
     else:
-      if lex.c_char in CHARS:
-        tokens.add(constructTextToken(lex))
-      elif lex.c_char in DIGITS:
+      if lex.c_char in DIGITS:
         tokens.add(constructNumToken(lex))
       else:
-        initError(lex.pos, advancePos(lex.pos, lex.c_char), "Invalid Char", "'" & lex.c_char & "'")
+        tokens.add(constructTextToken(lex))
   return tokens
