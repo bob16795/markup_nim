@@ -7,7 +7,6 @@ type
     c_char: char
 
 proc advanceLexer(lex: var lexer) =
-  #lex = lex
   lex.pos = advancePos(lex.pos, lex.c_char)
   if lex.pos.idx < lex.text.len():
     lex.c_char = lex.text[lex.pos.idx]
@@ -15,12 +14,14 @@ proc advanceLexer(lex: var lexer) =
     lex.c_char = '\b'
 
 proc initLexer*(text: string, fn: string): lexer =
-  result.text = text
+  result.text = "\n" & text
+  if text == "":
+    result.text = "\n" & result.text
   result.pos = initPos(-1, 0, -1, fn, text) 
   advanceLexer(result)
 
 proc constructTextToken(lex: var lexer): Token =
-  let EXCHARS  = "#\t*+-_:|<>(){}!$\n"
+  let EXCHARS  = "#\t*+-_:|<>(){}!$\n0123456789"
   var text_str = ""
   var pos_start = lex.pos
   while lex.c_char != '\b' and not(lex.c_char in EXCHARS[1..^1]):
@@ -32,10 +33,10 @@ proc constructNumToken(lex: var lexer): Token =
   let DIGITS = "0123456789"
   var text_str = ""
   var pos_start = lex.pos
-  while lex.c_char != '\b' and lex.c_char in DIGITS & ". ":
+  while lex.c_char != '\b' and lex.c_char in DIGITS & ".":
     text_str = text_str & lex.c_char
     advanceLexer(lex)
-  return initToken("tt_text", text_str, pos_start, lex.pos)
+  return initToken("tt_num", text_str, pos_start, lex.pos)
 
 proc runLexer*(lex: var lexer): seq[Token] =
   let DIGITS = "0123456789"
@@ -103,7 +104,7 @@ proc runLexer*(lex: var lexer): seq[Token] =
             tokens.add(initToken("tt_ident", "", lex.pos, advancePos(lex.pos, lex.c_char)))
             advanceLexer(lex)
           else:
-            tokens.add(initToken("tt_text", " ", lex.pos, advancePos(lex.pos, lex.c_char)))
+            tokens.add(initToken("tt_text", $lex.c_char, lex.pos, advancePos(lex.pos, lex.c_char)))
             advanceLexer(lex)
             break
         else:
@@ -113,4 +114,4 @@ proc runLexer*(lex: var lexer): seq[Token] =
         tokens.add(constructNumToken(lex))
       else:
         tokens.add(constructTextToken(lex))
-  return tokens
+  return tokens[1..^1]

@@ -245,6 +245,8 @@ proc visitBody*(node: Node, file_name: string, wd: string, prop_pre: Table[strin
   props["slave"] = "False"
   props["prepend"] = ""
   file = init_pdf_file()
+  for k, v in prop_pre:
+    props[k] = v
   text = ""
   for node in node.Contains:
     var ctx: context

@@ -106,7 +106,7 @@ proc `$`*(nod: Node): string =
     node_value = $nod.text
   of nkBody, nkPropSec, nkList, nkTextSec:
     for node in nod.Contains:
-      node_value &= "\n  " & ($node)
+      node_value &= "\n  " & ($node).replace("\n", "\n  ")
     node_value &= "\n"
     node_value = node_value
   of nkNone, nkPropDiv, nkTextParEnd, nkTable, nkTableRow, nkTableHeader, nkTableSplit:

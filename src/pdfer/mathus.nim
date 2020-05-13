@@ -20,8 +20,8 @@ proc get_obj*(equ: var equation, x: int, y: int, font: string = "times.ttf"): pd
         text = ""
       idx += 1
       case equ.text[idx]:
-      of 'f':
-        echo "frac"
+      # of 'f':
+      #   echo "frac"
       of '^':
         text_tmp = ""
         idx += 1
@@ -75,7 +75,7 @@ proc get_obj*(equ: var equation, x: int, y: int, font: string = "times.ttf"): pd
           pos = start_pos + get_text_size(text_tmp, 7, font).toInt
         result.append_text(") Tj\n{pos-start_pos} 0 Td\n/F1 12 Tf\n0 Ts\n")
       else:
-        echo "bad esc"
+        discard "bad esc"
     else:
       text.add(equ.text[idx])
     idx += 1

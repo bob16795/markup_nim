@@ -420,14 +420,17 @@ proc add_index*(file: var pdf_file, offset: int = 0) =
   file.add_text("INDEX", 32, 3)
   file.add_line(5, 5)
   file.set_cols(3)
+  var column_size = ((file.media_box[0].toFloat-200.0) - (file.column_spacing * (file.columns.toFloat - 1.0))) / file.columns.toFloat 
   for letter, words in file.index:
     file.add_text($letter, 24)
     for word, pages in words:
+      var size = get_text_size(word, 12, file.font_face)
       file.add_text(word, 12.0)
-      file.y += 12 + file.line_spacing
       var numbers: string
       for i in pages:
         numbers &= $(i + offset) & ", "
+      if (size + get_text_size(numbers[0..^3], 12, file.font_face)) < column_size:
+        file.y += 12 + file.line_spacing
       file.add_text(numbers[0..^3], 12.0, align=2)
   file.index = initTable[char, Table[string, seq[int]]]()
 
@@ -444,7 +447,7 @@ proc make_toc*(file: var pdf_file, offset: int): pdf_file =
   for heading, idx in file.toc:
       toc_file.add_text(("  ".repeat(idx[0])) & heading, 12)
       toc_file.y += 12 + toc_file.line_spacing
-      toc_file.add_text($(idx[1] + offset),12, align=2)
+      toc_file.add_text($(idx[1] + offset), 12, align=2)
   return toc_file
 
 proc make_title(file: var pdf_file) =

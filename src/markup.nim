@@ -31,9 +31,11 @@ proc help(msg: int, app_name: string = "markup") =
 var wrote: int
 
 proc compile(file: string, prop: Table[string, string], wd: string, tree: int) = 
-  echo "compile: ", file, ", ", tree
+  echo "compile: ", file
   var cwd = wd
   var file_new = file
+  if file == "":
+    return
   if file[0] == '/':
     cwd = file.split("/")[0..^2].join("/")
     file_new = file.split("/")[^1]
@@ -41,12 +43,12 @@ proc compile(file: string, prop: Table[string, string], wd: string, tree: int) =
   var toks = runLexer(lexer_obj)
   var parser_obj = initParser(toks, -1)
   var ast = parser_obj.runParser()
-  var output = visitBody(ast, file_new, cwd, prop)
-  var use = output.props["use"]
-  var output_file = output.props["output"]
-  var ignore = output.props["ignore"]
   case tree:
   of 0:
+    var output = visitBody(ast, file_new, cwd, prop)
+    var use = output.props["use"]
+    var output_file = output.props["output"]
+    var ignore = output.props["ignore"]
     if ignore != "True":
       if output_file == "":
         echo output.file
@@ -112,11 +114,11 @@ proc main() =
       echo "invalid argument ", prev
     of "h", "help":
       help(2)
+  if files.len < 1:
+    help(1)
   wrote = 0
   parallel:
     for file in files:
       spawn compile(file, prop, getCurrentDir(), tree)
   echo "DONE\n\nwrote ", $wrote, " files\n"
-  if files.len < 1:
-    help(1)
 main()

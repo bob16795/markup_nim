@@ -1,5 +1,5 @@
 import nodes, output, tokenclass
-import sequtils
+import sequtils, strutils
 
 type
   parser* = object
@@ -137,6 +137,10 @@ proc alphaNumSymEquParser(psr: var parser): Node =
     of "tt_minus":
       found = true
       text = text & "-"
+      psr.advance()
+    of "tt_plus":
+      found = true
+      text = text & "+"
       psr.advance()
     of "tt_ltag":
       found = true
@@ -468,7 +472,7 @@ proc heading1Parser(psr: var parser): Node =
   var node = psr.alphaNumSymMoreParser()
   if node.kind == nkNone:
     return Node(kind: nkNone)
-  var text = node.text
+  var text = node.text.strip()
   if psr.c_tok.ttype != "tt_newline":
     return Node(kind: nkNone)
   psr.advance()
@@ -483,7 +487,7 @@ proc heading2Parser(psr: var parser): Node =
   var node = psr.alphaNumSymMoreParser()
   if node.kind == nkNone:
     return Node(kind: nkNone)
-  var text = node.text
+  var text = node.text.strip()
   if psr.c_tok.ttype != "tt_newline":
     return Node(kind: nkNone)
   psr.advance()
@@ -498,7 +502,7 @@ proc heading3Parser(psr: var parser): Node =
   var node = psr.alphaNumSymMoreParser()
   if node.kind == nkNone:
     return Node(kind: nkNone)
-  var text = node.text
+  var text = node.text.strip()
   if psr.c_tok.ttype != "tt_newline":
     return Node(kind: nkNone)
   psr.advance()
@@ -679,37 +683,52 @@ proc textParEndParser(psr: var parser): Node =
   return Node(kind: nkNone)
 
 proc textSecParser(psr: var parser): Node =
+  var start = psr.tok_idx
   var start_pos = psr.c_tok.pos_start
   var node = psr.textCommentParser()
   if node.kind == nkNone:
-    node = psr.equParser()
-  if node.kind == nkNone:
-    node = psr.tagParser()
-  if node.kind == nkNone:
+    psr.goto(start)
     node = psr.textListParser()
   if node.kind == nkNone:
-    node = psr.textLineParser()
+    psr.goto(start)
+    node = psr.equParser()
   if node.kind == nkNone:
+    psr.goto(start)
+    node = psr.tagParser()
+  if node.kind == nkNone:
+    psr.goto(start)
     node = psr.textHeadingParser()
   if node.kind == nkNone:
+    psr.goto(start)
     node = psr.textTableParser()
   if node.kind == nkNone:
+    psr.goto(start)
+    node = psr.textLineParser()
+  if node.kind == nkNone:
+    psr.goto(start)
     return Node(kind: nkNone)
   var Nodes: seq[Node]
   while node.kind != nkNone:
+    start = psr.tok_idx
     Nodes.add(node)
     node = psr.textCommentParser()
     if node.kind == nkNone:
-      node = psr.equParser()
-    if node.kind == nkNone:
-      node = psr.tagParser()
-    if node.kind == nkNone:
+      psr.goto(start)
       node = psr.textListParser()
     if node.kind == nkNone:
-      node = psr.textLineParser()
+      psr.goto(start)
+      node = psr.equParser()
     if node.kind == nkNone:
+      psr.goto(start)
+      node = psr.tagParser()
+    if node.kind == nkNone:
+      psr.goto(start)
       node = psr.textHeadingParser()
     if node.kind == nkNone:
+      psr.goto(start)
+      node = psr.textLineParser()
+    if node.kind == nkNone:
+      psr.goto(start)
       node = psr.textTableParser()
   node = psr.textParEndParser()
   if node.kind == nkNone:
@@ -721,17 +740,21 @@ proc textSecParser(psr: var parser): Node =
               Contains: Nodes)
 
 proc bodyParser(psr: var parser): Node =
+  var start = psr.tok_idx
   var start_pos = psr.c_tok.pos_start
   var Nodes: seq[Node]
   var node = psr.propSecParser()
   if node.kind == nkNone:
+    psr.goto(start)
     node = psr.textSecParser()
   if node.kind == nkNone:
     return Node(kind: nkNone)
   while node.kind != nkNone:
+    start = psr.tok_idx
     Nodes.add(node)
     node = psr.propSecParser()
     if node.kind == nkNone:
+      psr.goto(start)
       node = psr.textSecParser()
   if psr.c_tok.ttype != "tt_eof":
     initError(psr.c_tok.pos_start, psr.c_tok.pos_end, "s", "ds")
