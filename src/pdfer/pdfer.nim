@@ -229,6 +229,7 @@ proc `$`*(file: var pdf_file): string =
     result = result.replace(&"{obj.ident()}", &"{i + 1} 0 R")
   end_file &= &"{len(result)-1}\n%%EOF"
   result &= footer & end_file
+  #lib_deinit()
 
 proc add_equation*(file: var pdf_file, text: string) =
   if file.y - (12 + file.line_spacing) < 100:
@@ -461,7 +462,6 @@ proc make_title(file: var pdf_file) =
 
 
 proc init_pdf_file*(): pdf_file =
-  lib_init()
   result.catalog = initCatalogObject()
   result.pages = initpagesObject()
   result.outlines = initOutlinesObject()
