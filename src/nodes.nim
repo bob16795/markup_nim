@@ -108,8 +108,19 @@ proc `$`*(nod: Node): string =
     for node in nod.Contains:
       node_value &= "\n  " & ($node).replace("\n", "\n  ")
     node_value &= "\n"
-    node_value = node_value
-  of nkNone, nkPropDiv, nkTextParEnd, nkTable, nkTableRow, nkTableHeader, nkTableSplit:
+  of nkTableHeader:
+    for i in 0..(nod.header_columns.high()):
+      node_value &= $(nod.ratio[i]) & ": " & nod.header_columns[i].strip() & ", "
+    node_value = node_value[0 ..< ^2]
+  of nkTableRow:
+    for i in 0..(nod.row_columns.high()):
+      node_value &= nod.row_columns[i].strip() & ", "
+    node_value = node_value[0 ..< ^2]
+  of nkTable:
+    for node in nod.rows:
+      node_value &= "\n  " & ($node).replace("\n", "\n  ")
+    node_value &= "\n"
+  of nkNone, nkPropDiv, nkTextParEnd, nkTableSplit:
     node_value = "None"
   of nkTag:
     node_value = nod.tag_name.strip() & " == " & nod.tag_value.strip()

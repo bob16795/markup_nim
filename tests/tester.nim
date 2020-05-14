@@ -1,11 +1,12 @@
-import osproc, unittest, strutils, os, sequtils, sugar, strformat
+import osproc, unittest, strutils, os, sequtils, sugar
 
 var rootDir = getCurrentDir().parentDir()
 var markupPath = rootDir / "src" / addFileExt("markup", ExeExt)
 const path = "../src/markup"
-const stringNotFound = -1
 
-doAssert execCmdEx("nim c " & path).exitCode == QuitSuccess
+var (output, exitCode) = execCmdEx("nim c " & path)
+echo output
+doAssert exitCode == QuitSuccess
 
 proc execMarkup(args: varargs[string]): tuple[output: string, exitCode: int] =
   var quotedArgs = @args
@@ -168,6 +169,14 @@ suite "parser":
     check(inLines(lines, "    <Heading 2: lol2>"))
     check(inLines(lines, "    <Heading 3: lol2>"))
 
+  test "psr_table":
+    var (output, exitCode) = execMarkup("-t","parser/tables.mu")
+    check exitCode == QuitSuccess
+    let lines = output.strip().split("\n")
+    check(inLines(lines, "    <Table:"))
+    check(inLines(lines, "      <TableHeader: 3: lol, 6: nope>"))
+    check(inLines(lines, "      <TableRow: hello, world>"))
+
 suite "interpreter":
   test "int_yamlOverride":
     var (output, exitCode) = execMarkup("-p", "lol:fdsa","interpreter/yaml.mu")
@@ -177,3 +186,9 @@ suite "interpreter":
     check(inLines(lines, "0 0 ( nope) \""))
     check(inLines(lines, "0 0 ( new) \""))
 
+  test "int_macros TODO":
+    discard
+
+suite "pdfer":
+  test "todo":
+    discard
