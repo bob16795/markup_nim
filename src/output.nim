@@ -67,7 +67,7 @@ proc WarningString(obj: LogMethod) =
 proc ErrorString(obj: ErrorMethod): string =
   result =          obj.error_name & ": " & obj.details & "\n"
   result = result & "File <" & obj.pos_start.fn & ">, Line " & $(obj.pos_start.ln + 1)
-  result = result & "\n\n" & string_with_arrows(obj.pos_start.ftxt, obj.pos_start, obj.pos_end) & "\n"
+  #result = result & "\n\n" & string_with_arrows(obj.pos_start.ftxt, obj.pos_start, obj.pos_end) & "\n"
 
 proc initError*(pos_start: position, pos_end: position, error_name: string, details: string) =
   var error: ErrorMethod

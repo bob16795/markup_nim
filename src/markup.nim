@@ -1,4 +1,4 @@
-import parseopt, lists, tables, os, re
+import parseopt, tables, os, re
 import strformat, strutils
 import lexer, parser, nodes, tokenclass
 import interpreter, threadpool
@@ -30,6 +30,8 @@ proc help(msg: int, app_name: string = "markup") =
 
 var wrote: int
 
+proc thread_check(text, cwd: string, tree: int, prop: Table[string, string])  {.gcsafe.} 
+
 proc compile(file: string, prop: Table[string, string], wd: string, tree: int) = 
   echo "compile: ", file
   var cwd = wd
@@ -57,25 +59,32 @@ proc compile(file: string, prop: Table[string, string], wd: string, tree: int) =
         writeFile(cwd & "/" & output_file, output.file)
         wrote += 1
     if use != "":
-      for text in use.split(";"):
-        var pattern = text.strip()
-        var path = cwd
-        if pattern[0] == '/':
-          path = "/" & join(pattern.split("/")[0..^2], "/")
-        else:
-          path = cwd & "/" & join(pattern.split("/")[0..^2], "/")
-        pattern = pattern.split("/")[^1]
-        var add = false
-        for file_full in walkDirRec(path):
-          var file_name = file_full.split("/")[^1]
-          if match(file_name, re(pattern)):
-            compile(file_name, prop, path, tree)
+      parallel:
+        for text in use.split(";"):
+          spawn thread_check(text, cwd, tree, prop)
   of 1:
     echo $ast
   of 2:
     echo $toks
   else:
     echo "weirdo"
+
+proc thread_check(text, cwd: string, tree: int, prop: Table[string, string]) {.gcsafe.} =
+  var pattern = text.strip()
+  var path = cwd
+  if pattern[0] == '/':
+    path = "/" & join(pattern.split("/")[0..^2], "/")
+  else:
+    path = cwd & "/" & join(pattern.split("/")[0..^2], "/")
+  pattern = pattern.split("/")[^1]
+  var file_list: seq[string] = @[]
+  for file_full in walkDirRec(path):
+    var file_name = file_full.split("/")[^1]
+    if match(file_name, re(pattern)):
+      file_list &= file_full
+  parallel:
+    for file_name in file_list:
+      spawn compile(file_name, prop, path, tree)
 
 proc main() =
   var tree = 0
