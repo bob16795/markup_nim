@@ -27,3 +27,4 @@ nimcache/
 
 # Test procedure artifacts
 nimble_*.nims
+src/markup
