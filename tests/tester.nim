@@ -37,7 +37,7 @@ suite "cli":
     check(inLines(lines, "Error: Missing argument \"FILES...\"."))
     check(not(inLines(lines, "wrote 0 files")))
 
-  test "arg_help":
+  test "help":
     var (output, exitCode) = execMarkup("--help")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
@@ -47,7 +47,7 @@ suite "cli":
     let lines2 = output.strip().split("\n")
     check(lines == lines2)
 
-  test "arg_prop":
+  test "prop":
     var (output, exitCode) = execMarkup("--prop", "lol: fdsa, nope: lol", "cli/prop.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
@@ -57,7 +57,7 @@ suite "cli":
     let lines2 = output.strip().split("\n")
     check(lines == lines2)
 
-  test "arg_tree":
+  test "tree":
     var (output, exitCode) = execMarkup("--tree", "cli/prop.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
@@ -65,7 +65,7 @@ suite "cli":
     let lines2 = output.strip().split("\n")
     check(lines == lines2)
 
-  test "arg_tokenTree":
+  test "tokenTree":
     var (output, exitCode) = execMarkup("--tree", "cli/prop.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
@@ -74,19 +74,19 @@ suite "cli":
     check(lines == lines2)
 
 suite "lexer":
-  test "lex_emojis":
+  test "emojis":
     var (output, exitCode) = execMarkup("-k", "lexer/emojis.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
     check(inLines(lines, "tt_text: 😁(1, 0)"))
 
-  test "lex_empty":
+  test "empty":
     var (output, exitCode) = execMarkup("-k", "lexer/empty.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
     check(inLines(lines, "tt_newline: (1, 0)"))
 
-  test "lex_symbols":
+  test "symbols":
     var (output, exitCode) = execMarkup("-k", "lexer/symbols.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
@@ -106,7 +106,7 @@ suite "lexer":
     check(inLines(lines, "tt_exclaim: (1, 15)"))
     check(inLines(lines, "tt_dollar: (1, 16)"))
 
-  test "lex_spacesToTabs":
+  test "spacesToTabs":
     var (output, exitCode) = execMarkup("-k", "lexer/spaces.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
@@ -116,7 +116,7 @@ suite "lexer":
     check(inLines(lines, "tt_text: ol(2, 2)"))
     check(inLines(lines, "tt_text: lol(3, 0)"))
 
-  test "lex_numberTokens":
+  test "numberTokens":
     var (output, exitCode) = execMarkup("-k", "lexer/numbers.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
@@ -126,14 +126,14 @@ suite "lexer":
     check(inLines(lines, "tt_num: 6947832.2(1, 11)"))
 
 suite "parser":
-  test "psr_textComment":
+  test "textComment":
     var (output, exitCode) = execMarkup("-t","parser/comment.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
     check(inLines(lines, "    <TextComment: this is a comment !!!>"))
     check(inLines(lines, "    <TextComment: Include nothing>"))
 
-  test "psr_textList":
+  test "textList":
     var (output, exitCode) = execMarkup("-t","parser/list.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
@@ -145,20 +145,20 @@ suite "parser":
     check(inLines(lines, "      <List Level 1:  six>"))
     check(inLines(lines, "      <List Level 3:  seven>"))
 
-  test "psr_equ":
+  test "equ":
     var (output, exitCode) = execMarkup("-t","parser/equation.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
     check(inLines(lines, "    <Equation: lol+nope>"))
 
-  test "psr_tag":
+  test "tag":
     var (output, exitCode) = execMarkup("-t","parser/tags.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
     check(inLines(lines, "    <Tag: lol == nope>"))
     check(inLines(lines, "    <Tag: lol == >"))
 
-  test "psr_textHeader":
+  test "textHeader":
     var (output, exitCode) = execMarkup("-t","parser/headings.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
@@ -169,7 +169,7 @@ suite "parser":
     check(inLines(lines, "    <Heading 2: lol2>"))
     check(inLines(lines, "    <Heading 3: lol2>"))
 
-  test "psr_table":
+  test "table":
     var (output, exitCode) = execMarkup("-t","parser/tables.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
@@ -178,7 +178,7 @@ suite "parser":
     check(inLines(lines, "      <TableRow: hello, world>"))
 
 suite "interpreter":
-  test "int_yamlOverride":
+  test "yamlOverride":
     var (output, exitCode) = execMarkup("-p", "lol:fdsa","interpreter/yaml.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
@@ -186,9 +186,31 @@ suite "interpreter":
     check(inLines(lines, "0 0 ( nope) \""))
     check(inLines(lines, "0 0 ( new) \""))
 
-  test "int_macros TODO":
-    discard
+  test "macros":
+    var (output, exitCode) = execMarkup("interpreter/macros.mu")
+    check exitCode == QuitSuccess
+    # let lines = output.strip().split("\n")
+    # check(inLines(lines, "0 0 ( hello this is main) \""))
+    # check(inLines(lines, "0 0 ( hello this is file 2) \""))
 
-suite "pdfer":
-  test "todo":
-    discard
+  test "include":
+    var (output, exitCode) = execMarkup("interpreter/include/main.mu")
+    check exitCode == QuitSuccess
+    let lines = output.strip().split("\n")
+    check(inLines(lines, "0 0 ( hello this is main) \""))
+    check(inLines(lines, "0 0 ( hello this is file 2) \""))
+
+  test "tagSet":
+    var (output, exitCode) = execMarkup("interpreter/tag_set.mu")
+    check exitCode == QuitSuccess
+    let lines = output.strip().split("\n")
+    check(inLines(lines, "0 0 ( value) \""))
+    check(inLines(lines, "0 0 ( new) \""))
+
+suite "pdfer": 
+  test "prepend":
+    var (output, exitCode) = execMarkup("pdfer/prepend.mu")
+    check exitCode == QuitSuccess
+    let lines = output.strip().split("\n")
+    check(inLines(lines, "0 0 (he llo) \""))
+    check(inLines(lines, "0 0 (cha nged) \""))
