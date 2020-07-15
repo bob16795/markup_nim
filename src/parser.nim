@@ -1,5 +1,6 @@
 import nodes, output, tokenclass
 import sequtils, strutils
+import macros
 
 type
   parser* = object
@@ -15,14 +16,66 @@ proc advance(psr: var parser, by: int = 1) =
     var pos = psr.tokens[^1].pos_start
     psr.c_tok = initToken("tt_eof", "tt_eof", pos, pos)
 
-proc goto(psr: var parser, to: int = 1) =
-  psr.tok_idx = to
+proc goto(psr: var parser, by: int = 1) =
+  psr.tok_idx = by
   if psr.tok_idx < len(psr.tokens):
     psr.c_tok = psr.tokens[psr.tok_idx]
   else:
     var pos = psr.tokens[^1].pos_start
     psr.c_tok = initToken("tt_eof", "tt_eof", pos, pos)
 
+macro parse_method*(head, body: untyped): untyped =
+  var parserName, parserReturn: NimNode
+  if head.kind == nnkInfix and eqIdent(head[0], ">>"):
+    parserName = ident(head[1].strVal & "Parser")
+    parserReturn = head[2]
+  else:
+    error "Invalid node: " & head.lispRepr
+  
+  result = newStmtList()
+
+  template parserProc(a, b, psr, node): untyped =
+    proc a(psr: var parser): Node =
+      var adv = 0
+      template advance(num = 1): untyped =
+        adv += num
+        psr.advance(num)
+      template ok(): untyped =
+        # echo "ok:  ", node.kind
+        return node
+      template bad(): untyped =
+        # echo "bad: ", node.kind
+        psr.advance(-adv)
+        return Node(kind: nkNone)
+      template test(test, stores): untyped =
+        var cccc = psr.tok_idx
+        if stores.kind == nkNone:
+          # psr.advance(-adv)
+          stores = psr.test()
+        if stores.kind == nkNone:
+          psr.goto(cccc)
+      template badifnot(t): untyped =
+        if psr.c_tok.ttype != t:
+          bad()
+        adv += 1
+        psr.advance()
+      var node = Node(kind: b, start_pos: psr.c_tok.pos_start)
+      
+  result.add(getAst(parserProc(parserName, parserReturn, ident("psr"), ident("node"))))
+
+  for node in body.children:
+    case node.kind:
+    
+    of nnkTripleStrLit:
+      discard
+    of nnkAsgn:
+      if eqIdent(node[1], "cur"):
+        node[1] = newNimNode(nnkDotExpr).add(newNimNode(nnkDotExpr).add(ident("psr")).add(ident("c_tok"))).add(ident("value"))
+      if node[0].strVal[0] == 'N':
+        node[0] = newNimNode(nnkDotExpr).add(ident("node")).add(ident(node[0].strVal[1..^1]))
+      result[0][6].add(node)
+    else:
+      result[0][6].add(node)
 
 proc initParser*(tokens: seq[Token], tok_idx: int): parser =
   result.tokens = tokens
@@ -246,198 +299,173 @@ proc alphaNumSymMoreParser(psr: var parser): Node =
   return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
 
 
-proc tableSplitParser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
+parse_method tableSplit >> nkTableSplit:
+  """
+  SPLIT := '|' ('-'* '|')*
+  """
   var error = false
   var ratio: seq[int]
   var col = 0
   while not error:
     error = true
     if psr.c_tok.ttype == "tt_bar":
-      psr.advance()
+      advance()
       col += 1
       ratio.add(0)
       while psr.c_tok.ttype == "tt_minus":
-        psr.advance()
+        advance()
         error = false
         ratio[^1] += 1
       if error == true:
         psr.advance(-1)
-  if psr.c_tok.ttype != "tt_bar":
-    return Node(kind: nkNone)
-  psr.advance()
-  if psr.c_tok.ttype != "tt_newline":
-    return Node(kind: nkNone)
-  var end_pos = psr.c_tok.pos_start
-  psr.advance()
-  return Node(start_pos: start_pos,
-              end_pos: end_pos,
-              kind: nkTableSplit,
-              split_ratio: ratio)
+  badifnot("tt_bar")
+  badifnot("tt_newline")
+  Nsplit_ratio = ratio
+  Nend_pos = psr.c_tok.pos_start
+  ok()
 
-proc tableRowParser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
+parse_method tableRow >> nkTableRow:
+  """
+  ROW := '|' (TEXT '|')*
+  """
   var error = false
-  var text: seq[string]
-  var node: Node
+  var texta = @[" "]
+  texta = @[]
   while error == false:
     error = true
     if psr.c_tok.ttype == "tt_bar":
-      psr.advance()
-      node = psr.alphaNumSymParser()
-      if node.kind != nkNone:
-        text.add(node.text)
+      advance()
+      var n = psr.alphaNumSymParser()
+      if n.kind != nkNone:
+        texta &= n.text
         error = false
-      else:
-         psr.advance(-1)
-  if text == []:
-      return Node(kind: nkNone)
-  if psr.c_tok.ttype != "tt_bar":
-      return Node(kind: nkNone)
-  psr.advance()
-  if psr.c_tok.ttype != "tt_newline":
-          return Node(kind: nkNone)
-  var end_pos = psr.c_tok.pos_start
-  psr.advance()
-  return Node(start_pos: start_pos,
-              end_pos: end_pos,
-              kind: nkTableRow,
-              row_columns: text)
+  if texta == @[]:
+    bad()
+  # badifnot("tt_bar")
+  badifnot("tt_newline")
+  Nrow_columns = texta
+  Nend_pos = psr.c_tok.pos_start
+  ok()
 
-proc tableTopParser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
+parse_method tableHeader >> nkTableHeader:
+  """
+  HEADER := ROW SPLIT
+  """
   var heading = psr.tableRowParser()
   if heading.kind == nkNone:
-    return Node(kind: nkNone)
+    bad()
   var split = psr.tableSplitParser()
   if split.kind == nkNone:
-    return Node(kind: nkNone)
-  return Node(start_pos: start_pos,
-              end_pos: psr.c_tok.pos_start,
-              kind: nkTableHeader,
-              header_columns: heading.row_columns,
-              ratio: split.split_ratio,
-              total: (split.split_ratio.foldl(a + b)))
+    bad()
+  Nratio = split.split_ratio
+  Ntotal = split.split_ratio.foldl(a + b)
+  Nheader_columns = heading.row_columns
+  Nend_pos = psr.c_tok.pos_start
+  ok()
 
-proc textTableParser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
+parse_method textTable >> nkTable:
+  """
+  table := HEADER ROW*
+  """
   var rows: seq[Node]
-  var node = psr.tableTopParser()
-  if node.kind == nkNone:
-    return Node(kind: nkNone)
-  var top = node
-  while node.kind != nkNone:
-    rows.add(node)
-    node = psr.tableRowParser()
+  var n = psr.tableHeaderParser()
+  if n.kind == nkNone:
+    bad()
+  var top = n
+  while n.kind != nkNone:
+    rows.add(n)
+    n = psr.tableRowParser()
   if len(rows) < 2:
-    return Node(kind: nkNone)
-  return Node(start_pos: start_pos,
-              end_pos: psr.c_tok.pos_start,
-              kind: nkTable,
-              rows: top & rows)
+    bad()
+  Nend_pos = psr.c_tok.pos_start
+  Nrows = top & rows
+  ok()
 
-proc propLineParser(psr: var parser): Node =
-  var start_condition, start_statment, end_statment = psr.c_tok.pos_start
+parse_method propLine >> nkPropLine:
+  Nstart_condition = psr.c_tok.pos_start
+  Nstart_statment = psr.c_tok.pos_start
+  Nend_statment = psr.c_tok.pos_start
   var invert = false
   var condition, prop, value = ""
   if psr.c_tok.ttype == "tt_exclaim":
       invert = true
-      psr.advance()
-      var node = psr.alphaNumSymParser()
-      if node.kind == nkNone:
-        return Node(kind: nkNone)
-      condition = node.text
-      if not(psr.c_tok.ttype == "tt_bar"):
-        return Node(kind: nkNone)
-      psr.advance()
-  var node = psr.alphaNumSymParser()
-  start_statment = psr.c_tok.pos_start
-  if node.kind == nkNone:
-    return Node(kind: nkNone)
-  var text = node.text
+      advance()
+      var n = psr.alphaNumSymParser()
+      if n.kind == nkNone:
+        bad()
+      condition = n.text
+      badifnot("tt_bar")
+  Ncondition = condition
+  var n = psr.alphaNumSymParser()
+  Nstart_statment = psr.c_tok.pos_start
+  if n.kind == nkNone:
+    bad()
+  var text = n.text
   if (not(invert)) and (psr.c_tok.ttype == "tt_bar"):
     invert = false
     condition = text
-    psr.advance()
-    node = psr.alphaNumSymParser()
-    if node.kind == nkNone:
-      return Node(kind: nkNone)
-    prop = node.text
-    if not(psr.c_tok.ttype == "tt_colon"):
-      return Node(kind: nkNone)
-    psr.advance()
-    node = psr.alphaNumSymMoreParser()
-    if node.kind == nkNone:
-      return Node(kind: nkNone)
-    value = node.text
+    advance()
+    n = psr.alphaNumSymParser()
+    if n.kind == nkNone:
+      bad()
+    prop = n.text
+    badifnot("tt_colon")
+    n = psr.alphaNumSymMoreParser()
+    if n.kind == nkNone:
+      bad()
+    value = n.text
   else:
     prop = text
-    if psr.c_tok.ttype != "tt_colon":
-      return Node(kind: nkNone)
-    psr.advance()
-    node = psr.alphaNumSymMoreParser()
-    if node.kind == nkNone:
-      return Node(kind: nkNone)
-    value = node.text
-  if psr.c_tok.ttype != "tt_newline":
-    return Node(kind: nkNone)
-  end_statment = psr.c_tok.pos_start
-  psr.advance()
-  return Node(start_pos: start_condition,
-              end_pos: psr.c_tok.pos_start,
-              kind: nkPropLine,
-              invert: invert,
-              condition: condition,
-              prop: prop,
-              value: value,
-              start_condition: start_condition,
-              start_statment: start_statment,
-              end_statment: psr.c_tok.pos_start)
+    badifnot("tt_colon")
+    n = psr.alphaNumSymMoreParser()
+    if n.kind == nkNone:
+      bad()
+    value = n.text
+  badifnot("tt_newline")
+  Nvalue = value
+  Ninvert = invert
+  Nprop = prop
+  Nend_statment = psr.c_tok.pos_start
+  Nend_pos = psr.c_tok.pos_start
+  ok()
 
-proc propDivParser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
+parse_method propDiv >> nkPropDiv:
   for i in 1..3:
-    if psr.c_tok.ttype != "tt_minus":
-      return Node(kind: nkNone)
-    psr.advance()
-  if psr.c_tok.ttype != "tt_newline":
-    return Node(kind: nkNone)
-  psr.advance()
-  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkPropDiv)
+    badifnot("tt_minus")
+  badifnot("tt_newline")
+  Nend_pos = psr.c_tok.pos_start
+  ok()
 
-proc propSecParser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
-  var node = psr.propDivParser()
-  if node.kind == nkNone:
-    return Node(kind: nkNone)
-  var Nodes: seq[Node]
-  while node.kind != nkNone:
-      Nodes.add(node)
-      node = psr.propLineParser()
-  node = psr.propDivParser()
-  if node.kind == nkNone:
-    return Node(kind: nkNone)
-  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkPropSec, Contains: Nodes)
+parse_method propSec >> nkPropSec:
+  var n = psr.propDivParser()
+  if n.kind == nkNone:
+    bad()
+  var nodes: seq[Node]
+  while n.kind != nkNone:
+      nodes.add(n)
+      n = psr.propLineParser()
+  n = psr.propDivParser()
+  if n.kind == nkNone:
+    bad()
+  Nend_pos = psr.c_tok.pos_start
+  NContains = nodes & n
+  ok()
 
-proc textLineParser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
+parse_method textLine >> nkTextLine:
   var text = ""
-  var node = psr.alphaNumSymMoreParser()
-  while node.kind != nkNone:
-    text = text & node.text
-    node = psr.alphaNumSymMoreParser()
+  var n = psr.alphaNumSymMoreParser()
+  while n.kind != nkNone:
+    text = text & n.text
+    n = psr.alphaNumSymMoreParser()
   if text == "":
-    return Node(kind: nkNone)
-  if psr.c_tok.ttype != "tt_newline":
-    return Node(kind: nkNone)
-  psr.advance()
-  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkTextLine, text: text)
-
-proc textCommentParser(psr: var parser): Node =
-  var start = psr.c_tok.pos_start
-  if psr.c_tok.ttype != "tt_exclaim":
-    return Node(kind: nkNone)
-  psr.advance()
+    bad()
+  badifnot("tt_newline")
+  Nend_pos = psr.c_tok.pos_start
+  Ntext = text
+  ok()
+  
+parse_method textComment >> nkTextComment:
+  badifnot("tt_exclaim")
   var text = ""
   while psr.c_tok.ttype != "tt_newline" and psr.c_tok.ttype != "tt_eof":
     case psr.c_tok.ttype:
@@ -459,285 +487,183 @@ proc textCommentParser(psr: var parser): Node =
       text = text & "("
     of "tt_rparen":
       text = text & ")"
-    psr.advance()
-  psr.advance()
-  return Node(kind: nkTextComment, text: text, start_pos: start, end_pos: psr.c_tok.pos_end)
-
-proc heading1Parser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
+    advance()
+  advance()
+  Nend_pos = psr.c_tok.pos_start
+  Ntext = text
+  ok()
+  
+parse_method heading1 >> nkHeading1:
   for i in 1..1:
-    if psr.c_tok.ttype != "tt_hash":
-      return Node(kind: nkNone)
-    psr.advance()
-  var node = psr.alphaNumSymMoreParser()
-  if node.kind == nkNone:
-    return Node(kind: nkNone)
-  var text = node.text.strip()
-  if psr.c_tok.ttype != "tt_newline":
-    return Node(kind: nkNone)
-  psr.advance()
-  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkHeading1, text: text)
+    badifnot("tt_hash")
+  var n = psr.alphaNumSymMoreParser()
+  if n.kind == nkNone:
+    bad()
+  var text = n.text.strip()
+  badifnot("tt_newline")
+  Nend_pos = psr.c_tok.pos_start
+  Ntext = text
+  ok()
 
-proc heading2Parser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
+parse_method heading2 >> nkHeading2:
   for i in 1..2:
-    if psr.c_tok.ttype != "tt_hash":
-      return Node(kind: nkNone)
-    psr.advance()
-  var node = psr.alphaNumSymMoreParser()
-  if node.kind == nkNone:
-    return Node(kind: nkNone)
-  var text = node.text.strip()
-  if psr.c_tok.ttype != "tt_newline":
-    return Node(kind: nkNone)
-  psr.advance()
-  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkHeading2, text: text)
-
-proc heading3Parser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
+    badifnot("tt_hash")
+  var n = psr.alphaNumSymMoreParser()
+  if n.kind == nkNone:
+    bad()
+  var text = n.text.strip()
+  badifnot("tt_newline")
+  Nend_pos = psr.c_tok.pos_start
+  Ntext = text
+  ok()
+  
+parse_method heading3 >> nkHeading3:
   for i in 1..3:
-    if psr.c_tok.ttype != "tt_hash":
-      return Node(kind: nkNone)
-    psr.advance()
-  var node = psr.alphaNumSymMoreParser()
-  if node.kind == nkNone:
-    return Node(kind: nkNone)
-  var text = node.text.strip()
-  if psr.c_tok.ttype != "tt_newline":
-    return Node(kind: nkNone)
-  psr.advance()
-  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkHeading3, text: text)
+    badifnot("tt_hash")
+  var n = psr.alphaNumSymMoreParser()
+  if n.kind == nkNone:
+    bad()
+  var text = n.text.strip()
+  badifnot("tt_newline")
+  Nend_pos = psr.c_tok.pos_start
+  Ntext = text
+  ok()
+  
+parse_method textHeading >> nkNone:
+  test(heading3Parser, node)
+  test(heading2Parser, node)
+  test(heading1Parser, node)
+  ok()
 
-proc textHeadingParser(psr: var parser): Node =
-  var start = psr.tok_idx
-  var node = psr.heading3Parser()
-  if node.kind == nkNone:
-    psr.goto(start)
-    node = psr.heading2Parser()
-  if node.kind == nkNone:
-    psr.goto(start)
-    node = psr.heading1Parser()
-  if node.kind == nkNone:
-    psr.goto(start)
-    return Node(kind: nkNone)
-  return node
-
-proc tagParser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
+parse_method tag >> nkTag:
   var tag_name, tag_value: string
-  var node: Node
+  var n: Node
 
-  if psr.c_tok.ttype != "tt_ltag":
-    return Node(kind: nkNone)
-  psr.advance()
+  badifnot("tt_ltag")
   if psr.c_tok.ttype != "tt_text":
-    return Node(kind: nkNone)
+    bad()
   tag_name = psr.c_tok.value
   tag_value = ""
-  psr.advance()
+  advance()
   if psr.c_tok.ttype == "tt_colon":
-    psr.advance()
-    node = psr.alphaNumSymTagParser()
-    if node.kind == nkNone:
-      return Node(kind: nkNone)
-    tag_value = node.text
-  if psr.c_tok.ttype != "tt_rtag":
-    return Node(kind: nkNone)
-  psr.advance()
-  if psr.c_tok.ttype != "tt_newline":
-    return Node(kind: nkNone)
-  psr.advance()
-  return Node(start_pos: start_pos,
-              end_pos: psr.c_tok.pos_start,
-              kind: nkTag,
-              tag_name: tag_name,
-              tag_value: tag_value)
+    advance()
+    n = psr.alphaNumSymTagParser()
+    if n.kind == nkNone:
+      bad()
+    tag_value = n.text
+  badifnot("tt_rtag")
+  badifnot("tt_newline")
+  Nend_pos = psr.c_tok.pos_start
+  Ntag_name = tag_name
+  Ntag_value = tag_value
+  ok()
 
 
-proc equParser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
-  var node: Node
+parse_method equ >> nkEquation:
+  var n: Node
 
-  if psr.c_tok.ttype != "tt_dollar":
-    return Node(kind: nkNone)
-  psr.advance()
-  node = psr.alphaNumSymEquParser()
-  if node.kind == nkNone:
-    return Node(kind: nkNone)
-  var text = node.text
-  echo text
-  if psr.c_tok.ttype != "tt_dollar":
-    return Node(kind: nkNone)
-  psr.advance()
-  if psr.c_tok.ttype != "tt_newline":
-    return Node(kind: nkNone)
-  psr.advance()
-  return Node(start_pos: start_pos,
-              end_pos: psr.c_tok.pos_start,
-              kind: nkEquation,
-              text: text)
+  badifnot("tt_dollar")
+  n = psr.alphaNumSymEquParser()
+  if n.kind == nkNone:
+    bad()
+  var text = n.text
+  badifnot("tt_dollar")
+  badifnot("tt_newline")
+  Nend_pos = psr.c_tok.pos_start
+  Ntext = text
+  ok()
 
-proc listlevel1Parser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
-  if psr.c_tok.ttype != "tt_minus":
-    return Node(kind: nkNone)
-  psr.advance()
-  var node = psr.alphaNumSymMoreParser()
-  if node.kind == nkNone:
-    return Node(kind: nkNone)
-  var text = node.text
-  if psr.c_tok.ttype != "tt_newline":
-    return Node(kind: nkNone)
-  psr.advance()
-  return Node(start_pos: start_pos,
-              end_pos: psr.c_tok.pos_start,
-              kind: nkListLevel1,
-              text: text)
+parse_method listLevel1 >> nkListLevel1:
+  badifnot("tt_minus")
+  var n = psr.alphaNumSymMoreParser()
+  if n.kind == nkNone:
+    bad()
+  var text = n.text
+  badifnot("tt_newline")
+  Nend_pos = psr.c_tok.pos_start
+  Ntext = text
+  ok()
 
-proc listlevel2Parser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
+parse_method listLevel2 >> nkListLevel2:
   for i in 1..1:
-    if psr.c_tok.ttype != "tt_ident":
-      return Node(kind: nkNone)
-    psr.advance()
-  if psr.c_tok.ttype != "tt_minus":
-    return Node(kind: nkNone)
-  psr.advance()
-  var node = psr.alphaNumSymMoreParser()
-  if node.kind == nkNone:
-    return Node(kind: nkNone)
-  var text = node.text
-  if psr.c_tok.ttype != "tt_newline":
-    return Node(kind: nkNone)
-  psr.advance()
-  return Node(start_pos: start_pos,
-              end_pos: psr.c_tok.pos_start, 
-              kind: nkListLevel2,
-              text: text)
+    badifnot("tt_ident")
+  badifnot("tt_minus")
+  var n = psr.alphaNumSymMoreParser()
+  if n.kind == nkNone:
+    bad()
+  var text = n.text
+  badifnot("tt_newline")
+  Nend_pos = psr.c_tok.pos_start
+  Ntext = text
+  ok()
 
-proc listlevel3Parser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
+parse_method listLevel3 >> nkListLevel3:
   for i in 1..2:
-    if psr.c_tok.ttype != "tt_ident":
-      return Node(kind: nkNone)
-    psr.advance()
-  if psr.c_tok.ttype != "tt_minus":
-    return Node(kind: nkNone)
-  psr.advance()
-  var node = psr.alphaNumSymMoreParser()
-  if node.kind == nkNone:
-    return Node(kind: nkNone)
-  var text = node.text
-  if psr.c_tok.ttype != "tt_newline":
-    return Node(kind: nkNone)
-  psr.advance()
-  return Node(start_pos: start_pos,
-              end_pos: psr.c_tok.pos_start,
-              kind: nkListLevel3, 
-              text: text)
+    badifnot("tt_ident")
+  badifnot("tt_minus")
+  var n = psr.alphaNumSymMoreParser()
+  if n.kind == nkNone:
+    bad()
+  var text = n.text
+  badifnot("tt_newline")
+  Nend_pos = psr.c_tok.pos_start
+  Ntext = text
+  ok()
 
-proc textListParser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
-  var Nodes: seq[Node]
-  var start = psr.tok_idx
-  var node = psr.listlevel3Parser()
-  if node.kind == nkNone:
-    psr.goto(start)
-    node = psr.listlevel2Parser()
-  if node.kind == nkNone:
-    psr.goto(start)
-    node = psr.listlevel1Parser()
-  if node.kind == nkNone:
-    psr.goto(start)
-    return Node(kind: nkNone)
-  var error = false
-  while error == false:
-    start = psr.tok_idx
-    Nodes.add(node)
-    node = psr.listlevel3Parser()
-    if node.kind == nkNone:
-      psr.goto(start)
-      node = psr.listlevel2Parser()
-    if node.kind == nkNone:
-      psr.goto(start)
-      node = psr.listlevel1Parser()
-    if node.kind == nkNone:
-      psr.goto(start)
-      error = true
-  if len(Nodes) == 1:
-    return Node(kind: nkNone)
-  return Node(start_pos: start_pos,
-              end_pos: psr.c_tok.pos_start,
-              kind: nkList,
-              Contains: Nodes)
+parse_method textList >> nkList:
+  var nodes: seq[Node]
+  var n = Node(kind: nkNone)
+  test(listlevel3Parser, n)
+  test(listlevel2Parser, n)
+  test(listlevel1Parser, n)
+  while n.kind != nkNone:
+    # checkpoint()
+    nodes.add(n)
+    n = Node(kind: nkNone)
+    test(listlevel3Parser, n)
+    test(listlevel2Parser, n)
+    test(listlevel1Parser, n)
+  # reset()
+  if len(nodes) <= 1:
+    bad()
+  NContains = nodes
+  Nend_pos = psr.c_tok.pos_start
+  ok()
 
-proc textParEndParser(psr: var parser): Node =
-  var start_pos = psr.c_tok.pos_start
-  if psr.c_tok.ttype in ["tt_newline", "tt_eof"]:
-      psr.advance()
-      while psr.c_tok.ttype == "tt_newline":
-          psr.advance()
-      return Node(start_pos: start_pos,
-                  end_pos: psr.c_tok.pos_start, 
-                  kind: nkTextParEnd)
-  return Node(kind: nkNone)
+parse_method textParEnd >> nkTextParEnd:
+  badifnot("tt_newline")
+  while psr.c_tok.ttype == "tt_newline":
+      advance()
+  ok()
 
-proc textSecParser(psr: var parser): Node =
-  var start = psr.tok_idx
-  var start_pos = psr.c_tok.pos_start
-  var node = psr.textCommentParser()
-  if node.kind == nkNone:
-    psr.goto(start)
-    node = psr.textListParser()
-  if node.kind == nkNone:
-    psr.goto(start)
-    node = psr.equParser()
-  if node.kind == nkNone:
-    psr.goto(start)
-    node = psr.tagParser()
-  if node.kind == nkNone:
-    psr.goto(start)
-    node = psr.textHeadingParser()
-  if node.kind == nkNone:
-    psr.goto(start)
-    node = psr.textTableParser()
-  if node.kind == nkNone:
-    psr.goto(start)
-    node = psr.textLineParser()
-  if node.kind == nkNone:
-    psr.goto(start)
-    return Node(kind: nkNone)
-  var Nodes: seq[Node]
-  while node.kind != nkNone:
-    start = psr.tok_idx
-    Nodes.add(node)
-    node = psr.textCommentParser()
-    if node.kind == nkNone:
-      psr.goto(start)
-      node = psr.textListParser()
-    if node.kind == nkNone:
-      psr.goto(start)
-      node = psr.equParser()
-    if node.kind == nkNone:
-      psr.goto(start)
-      node = psr.tagParser()
-    if node.kind == nkNone:
-      psr.goto(start)
-      node = psr.textHeadingParser()
-    if node.kind == nkNone:
-      psr.goto(start)
-      node = psr.textLineParser()
-    if node.kind == nkNone:
-      psr.goto(start)
-      node = psr.textTableParser()
-  node = psr.textParEndParser()
-  if node.kind == nkNone:
-    return Node(kind: nkNone)
-  Nodes.add(node)
-  return Node(start_pos: start_pos,
-              end_pos: psr.c_tok.pos_start,
-              kind: nkTextSec,
-              Contains: Nodes)
+
+parse_method textSec >> nkTextSec:
+  var nodes: seq[Node]
+  var n = psr.textCommentParser()
+  test(textListParser, n)
+  test(equParser, n)
+  test(tagParser, n)
+  test(textHeadingParser, n)
+  test(textTableParser, n)
+  test(textLineParser, n)
+  while n.kind != nkNone:
+    nodes.add(n)
+    n = psr.textCommentParser()
+    test(textListParser, n)
+    test(equParser, n)
+    test(tagParser, n)
+    test(textHeadingParser, n)
+    test(textTableParser, n)
+    test(textLineParser, n)
+  if len(nodes) < 1:
+    bad()
+  n = psr.textParEndParser()
+  if n.kind == nkNone:
+    bad()
+  nodes.add(n)
+  NContains = nodes
+  Nend_pos = psr.c_tok.pos_start
+  ok()
 
 proc bodyParser(psr: var parser): Node =
   var start = psr.tok_idx
@@ -748,7 +674,7 @@ proc bodyParser(psr: var parser): Node =
     psr.goto(start)
     node = psr.textSecParser()
   if node.kind == nkNone:
-    return Node(kind: nkNone)
+    return Node(kind: nkBody)
   while node.kind != nkNone:
     start = psr.tok_idx
     Nodes.add(node)
@@ -757,7 +683,7 @@ proc bodyParser(psr: var parser): Node =
       psr.goto(start)
       node = psr.textSecParser()
   if psr.c_tok.ttype != "tt_eof":
-    initError(psr.c_tok.pos_start, psr.c_tok.pos_end, "s", "ds")
+    initError(psr.c_tok.pos_start, psr.c_tok.pos_end, "not at eof", "lastparsed =\n---" & $Nodes[^1] & "---\n")
   return Node(start_pos: start_pos,
               end_pos: psr.c_tok.pos_start,
               kind: nkBody,

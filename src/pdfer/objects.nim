@@ -77,8 +77,8 @@ proc initFontObject*(name: string): pdf_object =
     /BaseFont/BCDEEE+Calibri
     /Encoding/WinAnsiEncoding
     /FontDescriptor 6 0 R
-    /FirstChar 32
-    /LastChar 32
+    /FirstChar 0
+    /LastChar 10000
     /Widths 18 0 R
     >>
     """

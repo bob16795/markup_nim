@@ -11,9 +11,10 @@ srcDir       = "src"
 
 requires "nim >= 0.10.0"
 requires "sdl2"
-import distros
-foreignDep "libsdl2-dev"
 
+import distros
+
+foreignDep "libsdl2-dev"
 
 task test, "Run the Markup tester!":
   withDir "tests":

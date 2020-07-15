@@ -33,7 +33,7 @@ var wrote: int
 proc thread_check(text, cwd: string, tree: int, prop: Table[string, string])  {.gcsafe.} 
 
 proc compile(file: string, prop: Table[string, string], wd: string, tree: int) = 
-  echo "compile: ", file
+  echo "compiling: ", file
   var cwd = wd
   var file_new = file
   if file == "":
