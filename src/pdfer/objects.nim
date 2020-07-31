@@ -1,4 +1,4 @@
-import md5, tables, strutils, strformat
+import md5, tables, strutils, strformat, ../terminal
 
 type
   pdf_object* = object of RootObj
@@ -84,11 +84,11 @@ proc parse_uint16(file: File): uint32 =
   result = a[0].uint16 shl 8
   result += a[1].uint16 shl 0
 
-proc parse_uint8(file: File): uint32 =
-  var a: seq[uint8] = @[0.uint8]
-  if 1 != file.readBytes(a, 0, 1):
-    return
-  result = a[0].uint16 shl 0
+#proc parse_uint8(file: File): uint32 =
+#  var a: seq[uint8] = @[0.uint8]
+#  if 1 != file.readBytes(a, 0, 1):
+#    return
+#  result = a[0].uint16 shl 0
 
 proc parse_Tag(file: File): array[4, char] =
   var a: seq[uint8] = @[0.uint8, 0.uint8, 0.uint8, 0.uint8]
@@ -100,7 +100,7 @@ proc parse_Tag(file: File): array[4, char] =
   result[3] = a[3].char
 
 proc getBaseFont(file: string): string =
-  echo "opening: ", file
+  debug(file, "opening font")
   var f = open(file)
   discard parse_uint32(f)
   var ftables = parse_uint16(f)
@@ -139,7 +139,7 @@ proc getBaseFont(file: string): string =
     discard f.readChars(a, 0, length)
     names &= a.join("")
     f.setFilePos(pos)
-  echo names[6]
+  debug(file, "name is " & names[6])
   return names[6]
 
 proc initFontFileObject*(file: string): pdf_object =

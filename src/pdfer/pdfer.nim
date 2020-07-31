@@ -17,7 +17,7 @@ type
     line_spacing*, column_spacing*: float
     current_column*, columns*: int
     media_box*: array[0..1, int]
-    title*, author*: string
+    title*, author*, source_file_name*: string
     font_face*, font_face_bold*: string
     font_obj*: pdf_object
     include_title_page*, include_index*, include_toc*: bool
@@ -89,7 +89,7 @@ proc get_pdf_objs(tab: var table): seq[pdf_object] =
   result.add(initLineObject(1, [tab.offset[0]+tab.width, tab.offset[0]], [tab.offset[1]-line_y, tab.offset[1]-line_y]))
   tab.height = line_y + 12
 
-proc add_table*(file: var pdf_file, tab: var table) = 
+proc add_table*(file: var pdf_file, tab: var table) =
   discard tab.get_pdf_objs()
   file.y -= tab.height
   if file.y < 100:

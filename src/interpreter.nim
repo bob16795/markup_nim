@@ -1,6 +1,6 @@
-import lists, tables, strutils, re, strformat
+import tables, strutils, re, strformat
 import nodes, output, lexer, parser, nodes
-import pdfer/pdfer, os
+import pdfer/pdfer, os, terminal
 
 type
   int_return* = object
@@ -15,11 +15,11 @@ type
     wd*: string
     tab*: table
 
-proc to_macro(props: var Table[string, string], value: string): string =
-  result = value
-  result = result.replace("\\n", "\n")
-  # if re.match(prop, re"<*:*>"):
-  #   discard
+#proc to_macro(props: var Table[string, string], value: string): string =
+#  result = value
+#  result = result.replace("\\n", "\n")
+#  # if re.match(prop, re"<*:*>"):
+#  #   discard
 
 proc initOutput(file: var pdf_file, props: var Table[string, string]): int_return =
   result.file = $file
@@ -45,8 +45,8 @@ proc set_prop(props: var Table[string, string], file: var pdf_file, prop: string
     file.header = value.strip().split(",")
   of "footer":
     file.footer = value.strip().split(",")
-  # of "prepend":
-  #   echo value.strip()
+  of "prepend":
+    debug(props["file_name"], "prepend set to \"" & value.strip() & "\"")
 
 proc `[]`(ctx: context, value: string): mac =
   for mac in ctx.macros:
@@ -145,7 +145,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
       try:
         maca = ctx[node.tag_name.strip()]
       except:
-        echo "weird tag: ", node.tag_name, " in: ", node.start_pos.fn
+        debug(props["file_name"], "weird tag: " & node.tag_name)
       finally:
         if maca.name == node.tag_name.strip():
           for tag in maca.tags:
@@ -184,7 +184,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
         var file_name = file_full[1].split("/")[^1]
         if match(file_name, re(pattern)):
           add = true
-          echo "include: " & file_name & ", " & node.text[4..len(node.text)-1].strip()
+          log(props["file_name"], "include " & file_name)
           var lexer_obj = initLexer(readFile(file_full[1]), file_full[1])
           var toks = runLexer(lexer_obj)
           var parser_obj = initParser(toks, -1)
@@ -196,7 +196,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
             ctx.wd = wd
       props["slave"] = slave_start
       if add == false:
-        echo "warn: Inc followed no files"
+        log(props["file_name"], "warn: `" & node.text & "` ignored")
   of nkEquation:
     file.add_equation(node.text)
     text = ""

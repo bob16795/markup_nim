@@ -1,39 +1,19 @@
 import parseopt, tables, os, re
-import strformat, strutils
+import strutils
 import lexer, parser, nodes, tokenclass
-import interpreter, threadpool
+import interpreter, threadpool, terminal
 {.experimental: "parallel".}
 
 var p = initOptParser()
 
 var files: seq[string]
 
-proc help(msg: int, app_name: string = "markup") =
-  echo &"Usage: {app_name} [OPTIONS] FILES..."
-  case msg:
-  of 1:
-    echo &"Try \"{app_name} --help\" for help."
-    echo &""
-    echo &"Error: Missing argument \"FILES...\"."
-  of 2:
-    echo ""
-    echo "Options:"
-    echo ""
-    echo "-h,\t--help\tShow this message and exit."
-    echo "-p,\t--prop\tPrepend properties to document."
-    echo "-t,\t--tree\tporints the ast and exits."
-    echo "-k,\t--token-tree\tporints the tokens and exits."
-    echo ""
-  else:
-    discard
-  quit()
-
 var wrote: int
 
 proc thread_check(text, cwd: string, tree: int, prop: Table[string, string])  {.gcsafe.} 
 
 proc compile(file: string, prop: Table[string, string], wd: string, tree: int) = 
-  echo "compiling: ", file
+  log(file.split("/")[^1], "compiling")
   var cwd = wd
   var file_new = file
   if file == "":
@@ -52,22 +32,18 @@ proc compile(file: string, prop: Table[string, string], wd: string, tree: int) =
     var output_file = output.props["output"]
     var ignore = output.props["ignore"]
     if ignore != "True":
-      if output_file == "":
-        echo output.file
-      else:
-        echo "Writing: ", output_file
-        writeFile(cwd & "/" & output_file, output.file)
-        wrote += 1
+      output(output.file, output_file, cwd)
+      wrote += 1
     if use != "":
       parallel:
         for text in use.split(";"):
           spawn thread_check(text, cwd, tree, prop)
   of 1:
-    echo $ast
+    output($ast, "", cwd)
   of 2:
-    echo $toks
+    output($toks, "", cwd)
   else:
-    echo "weirdo"
+    debug(file, "idk how your here")
 
 proc thread_check(text, cwd: string, tree: int, prop: Table[string, string]) {.gcsafe.} =
   var pattern = text.strip()
@@ -113,14 +89,14 @@ proc main() =
               var to  = value.split(":")[1].strip()
               prop[set] = to
             else:
-              echo "invalid argument ", key, value
+              log("root", "invalid argument " & key & value)
         of "h", "help":
           help(2)
         prev = ""
   if prev != "":
     case prev:
     of "p", "prop":
-      echo "invalid argument ", prev
+      log("root", "invalid argument " & prev)
     of "h", "help":
       help(2)
   if files.len < 1:
@@ -129,5 +105,5 @@ proc main() =
   parallel:
     for file in files:
       spawn compile(file, prop, getCurrentDir(), tree)
-  echo "DONE\n\nwrote ", $wrote, " files\n"
+  log("root", "DONE\n\nwrote " & $wrote & " files")
 main()

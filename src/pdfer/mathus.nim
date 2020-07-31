@@ -21,7 +21,7 @@ proc get_obj*(equ: var equation, x: int, y: int, font: string = "times.ttf"): pd
       idx += 1
       case equ.text[idx]:
       # of 'f':
-      #   echo "frac"
+      #   todo: fractions
       of '^':
         text_tmp = ""
         idx += 1

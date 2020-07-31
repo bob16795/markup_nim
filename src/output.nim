@@ -1,4 +1,4 @@
-import strutils
+import strutils, terminal
 
 type
   OutputMethod* = object of RootObj
@@ -57,14 +57,6 @@ proc string_with_arrows(text: string, pos_start: position, pos_end: position): s
   except:
     return ""
 
-proc LogString(obj: LogMethod) =
-  var path = obj.details
-  echo obj.log_name, ": ", path
-
-proc WarningString(obj: LogMethod) =
-  var path = obj.details
-  echo obj.log_name, ": ", path
-
 proc `$`(obj: ErrorMethod): string =
   result =          obj.error_name & ": " & obj.details & "\n"
   result = result & "File <" & obj.pos_start.fn & ">, Line " & $(obj.pos_start.ln + 1)
@@ -76,7 +68,7 @@ proc initError*(pos_start: position, pos_end: position, error_name: string, deta
   error.pos_end = pos_end
   error.error_name = error_name
   error.details = details
-  echo error
+  log(error.pos_start.fn, $error)
   quit()
 
 proc initPos*(idx: int, ln: int, col: int, fn: string, ftxt: string): position =

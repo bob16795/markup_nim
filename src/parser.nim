@@ -41,10 +41,8 @@ macro parse_method*(head, body: untyped): untyped =
         adv += num
         psr.advance(num)
       template ok(): untyped =
-        # echo "ok:  ", node.kind
         return node
       template bad(): untyped =
-        # echo "bad: ", node.kind
         psr.advance(-adv)
         return Node(kind: nkNone)
       template test(test, stores): untyped =

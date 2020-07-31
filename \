@@ -28,11 +28,11 @@ proc execMarkup(args: varargs[string]): tuple[output: string, exitCode: int] =
 proc inLines(lines: seq[string], line: string): bool =
   for i in lines:
     if line.normalize in i.normalize: return true
-
 suite "cli":
+
   test "only terminal.nim echos":
-    var (output, exitCode) = execCmdEx("grep echo " & markupPath & " -R --exclude terminal.nim --exclude markup")
-    assert output.strip() == ""
+    var (output, exitCode) = execCmdEx("grep echo -R --exclude terminal.nim --exclude markup")
+    assert output == "".strip()
 
   test "compile_error_nofiles":
     var (output, exitCode) = execMarkup()
