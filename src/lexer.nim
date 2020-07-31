@@ -115,4 +115,5 @@ proc runLexer*(lex: var lexer): seq[Token] =
         tokens.add(constructNumToken(lex))
       else:
         tokens.add(constructTextToken(lex))
+  tokens.add(initToken("tt_newline", "", lex.pos, advancePos(lex.pos, lex.c_char)))
   return tokens[1..^1]

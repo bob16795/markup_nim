@@ -186,6 +186,8 @@ proc sequence(file: var pdf_file): seq[pdf_object] =
     result.add(page)
   for text in file.text_objs:
     result.add(text)
+  result.add(initFontFileObject(file.font_face))
+  result.add(initFontDescObject(file.font_face))
   result.add(file.font_obj)
 
 
@@ -194,6 +196,7 @@ proc finish*(file: var pdf_file) =
   var toc_length: int = 0
   var toc_file: pdf_file
 
+  file.font_obj = initFontObject("/F1", file.font_face)
   if file.include_toc:
     toc_length = file.get_toc_size()
     toc_file = file.make_toc(toc_length)
@@ -220,14 +223,14 @@ proc `$`*(file: var pdf_file): string =
   file.finish()
   var objects_ordered = file.sequence()
   result = "%PDF-1.2\n"
-  var footer = &"xref\n0 {len(objects_ordered) - 1}\n0000000000 65535 f\n"
+  var footer = &"xref\n0 {len(objects_ordered) + 1}\n0000000000 65535 f\n"
   var end_file = &"trailer\n<< /Size {len(objects_ordered) - 1}\n/Root 1 0 R\n>>\nstartxref\n"
   for i, obj in (objects_ordered):
-      footer &= &"{len(result) - 1:010} 00000 n\n"
+      footer &= &"{len(result):010} 00000 n\n"
       result &= &"{i + 1} 0 obj\n{$obj}endobj\n"
   for i, obj in (objects_ordered):
     result = result.replace(&"{obj.ident()}", &"{i + 1} 0 R")
-  end_file &= &"{len(result)-1}\n%%EOF"
+  end_file &= &"{len(result)}\n%%EOF"
   result &= footer & end_file
   #lib_deinit()
 
@@ -281,7 +284,7 @@ proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1) =
             if (pdf_line.len - 1) != 0:
               var needs = ( column_size - get_text_size(join(pdf_line[0..^2], " ").strip(), size, file.font_face))
               word_spacing = (needs / (len(pdf_line[0..^3])).toFloat())
-            if $word_spacing == "inf":
+            if $word_spacing == "inf" or $word_spacing == "-inf":
               word_spacing = 0
             var char_spacing: float = 0
             if len(pdf_line) < 3:
@@ -465,7 +468,7 @@ proc init_pdf_file*(): pdf_file =
   result.catalog = initCatalogObject()
   result.pages = initpagesObject()
   result.outlines = initOutlinesObject()
-  result.font_obj = initFontObject("/F1")
+  result.font_obj = initFontObject("/F1", "times.ttf")
   result.level = @[0, 0, 0]
   result.cpt = 0
   result.prt = 0

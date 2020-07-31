@@ -116,15 +116,6 @@ suite "lexer":
     check(inLines(lines, "tt_text: ol(2, 2)"))
     check(inLines(lines, "tt_text: lol(3, 0)"))
 
-  test "numberTokens":
-    var (output, exitCode) = execMarkup("-k", "lexer/numbers.mu")
-    check exitCode == QuitSuccess
-    let lines = output.strip().split("\n")
-    check(inLines(lines, "tt_num: 46(1, 0)"))
-    check(inLines(lines, "tt_num: 372(1, 3)"))
-    check(inLines(lines, "tt_num: 815(1, 7)"))
-    check(inLines(lines, "tt_num: 6947832.2(1, 11)"))
-
 suite "parser":
   test "textComment":
     var (output, exitCode) = execMarkup("-t","parser/comment.mu")

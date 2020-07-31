@@ -68,7 +68,101 @@ proc initLineObject*(width: float, x, y: array[0..1, float]): pdf_object =
   result.stream = ""
   result.append_text(&"{width} w\n{x[0]} {y[0]} m\n{x[1]} {y[1]} l\nS")
 
-proc initFontObject*(name: string): pdf_object =
+proc parse_uint32(file: File): uint32 =
+  var a: seq[uint8] = @[0.uint8, 0.uint8, 0.uint8, 0.uint8]
+  if 4 != file.readBytes(a, 0, 4):
+    return
+  result = a[0].uint32 shl 24
+  result += a[1].uint32 shl 16
+  result += a[2].uint32 shl 8
+  result += a[3].uint32 shl 0
+
+proc parse_uint16(file: File): uint32 =
+  var a: seq[uint8] = @[0.uint8, 0.uint8]
+  if 2 != file.readBytes(a, 0, 2):
+    return
+  result = a[0].uint16 shl 8
+  result += a[1].uint16 shl 0
+
+proc parse_uint8(file: File): uint32 =
+  var a: seq[uint8] = @[0.uint8]
+  if 1 != file.readBytes(a, 0, 1):
+    return
+  result = a[0].uint16 shl 0
+
+proc parse_Tag(file: File): array[4, char] =
+  var a: seq[uint8] = @[0.uint8, 0.uint8, 0.uint8, 0.uint8]
+  if 4 != file.readBytes(a, 0, 4):
+    return
+  result[0] = a[0].char
+  result[1] = a[1].char
+  result[2] = a[2].char
+  result[3] = a[3].char
+
+proc getBaseFont(file: string): string =
+  echo "opening: ", file
+  var f = open(file)
+  discard parse_uint32(f)
+  var ftables = parse_uint16(f)
+  discard parse_uint16(f)
+  discard parse_uint16(f)
+  discard parse_uint16(f)
+  var tabs: Table[string, uint32]
+  for i in 1..ftables:
+    var name = parse_tag(f)
+    discard parse_uint32(f)
+    var offset = parse_uint32(f)
+    discard parse_uint32(f)
+    tabs[name.join("")] = offset
+  if not("name" in tabs):
+    return ""
+  f.setFilePos(tabs["name"].int)
+  var format = parse_uint16(f)
+  var tablen = 0
+  var ssoffset = 0
+  var names: seq[string] = @[]
+  if format == 0:
+    tablen = parse_uint16(f).int
+    ssoffset = parse_uint16(f).int
+  for i in 1..tablen:
+    discard parse_uint16(f).int
+    discard parse_uint16(f).int
+    discard parse_uint16(f).int
+    discard parse_uint16(f).int
+    var length = parse_uint16(f).int
+    var offset = parse_uint16(f).int
+    var a: seq[char] = @[]
+    for i in 0..length:
+      a &= " "
+    var pos = f.getFilePos()
+    f.setFilePos(tabs["name"].int + ssoffset + offset.int)
+    discard f.readChars(a, 0, length)
+    names &= a.join("")
+    f.setFilePos(pos)
+  echo names[6]
+  return names[6]
+
+proc initFontFileObject*(file: string): pdf_object =
+    result.stream = readFile(file)
+
+proc initFontDescObject*(file: string): pdf_object =
+    #/StemV 105 
+    #/StemH 45 
+    #/CapHeight 660 
+    #/XHeight 394 
+    #/Ascent 720 
+    #/Descent −270 
+    #/Leading 83 
+    #/MaxWidth 1212 
+    #/AvgWidth 478 
+    result.otype = "FontDescriptor"
+    result.append("/FontName", initStringObject("/HelloWorld"))
+    result.append("/FontFile2", initFontFileObject(file))
+    result.append("/FontBBox",initStringObject("[ −177 −269 1123 866 ]"))
+    result.append("/MissingWidth",initStringObject("255"))
+    result.append("/MaxWidth",initStringObject("255"))
+
+proc initFontObject*(name, file: string): pdf_object =
     discard """
     <<
     /Type/Font
@@ -82,6 +176,11 @@ proc initFontObject*(name: string): pdf_object =
     /Widths 18 0 R
     >>
     """
-    result.append("/Subtype", initStringObject("/Type1")) 
-    result.append("/Name", initStringObject(name)) 
-    result.append("/BaseFont", initStringObject("/Times")) 
+    result.otype = "Font"
+    result.append("/Subtype", initStringObject("/TrueType"))
+    result.append("/Name", initStringObject(name))
+    result.append("/BaseFont", initStringObject("/" & getBaseFont(file)))
+    result.append("/Encoding", initStringObject("/WinAnsiEncoding"))
+    result.append("/FontDescriptor", initFontDescObject(file))
+    
+    
