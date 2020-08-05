@@ -48,7 +48,6 @@ macro parse_method*(head, body: untyped): untyped =
       template test(test, stores): untyped =
         var cccc = psr.tok_idx
         if stores.kind == nkNone:
-          # psr.advance(-adv)
           stores = psr.test()
         if stores.kind == nkNone:
           psr.goto(cccc)
@@ -181,6 +180,14 @@ proc alphaNumSymEquParser(psr: var parser): Node =
       found = true
       text = text & "*"
       psr.advance()
+    of "tt_lbrace":
+      found = true
+      text = text & "{"
+      psr.advance()
+    of "tt_rbrace":
+      found = true
+      text = text & "}"
+      psr.advance()
     of "tt_exclaim":
       found = true
       text = text & "!"
@@ -220,6 +227,73 @@ proc alphaNumSymEquParser(psr: var parser): Node =
     of "tt_num":
       found = true
       text = text & psr.c_tok.value
+      psr.advance()
+  if text == "":
+    return Node(kind: nkNone)
+  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
+
+proc alphaNumSymTextParser(psr: var parser): Node =
+  var text = ""
+  var found = true
+  var start_pos = psr.c_tok.pos_start
+  while found:
+    found = false
+    case psr.c_tok.ttype:
+    of "tt_lparen":
+      found = true
+      text = text & "("
+      psr.advance()
+    of "tt_rparen":
+      found = true
+      text = text & ")"
+      psr.advance()
+    of "tt_lbrace":
+      found = true
+      text = text & "{"
+      psr.advance()
+    of "tt_rbrace":
+      found = true
+      text = text & "}"
+      psr.advance()
+    of "tt_plus":
+      found = true
+      text = text & "+"
+      psr.advance()
+    of "tt_star":
+      found = true
+      text = text & "*"
+      psr.advance()
+    of "tt_colon":
+      found = true
+      text = text & ":"
+      psr.advance()
+    of "tt_ltag":
+      found = true
+      text = text & "<"
+      psr.advance()
+    of "tt_rtag":
+      found = true
+      text = text & ">"
+      psr.advance()
+    of "tt_exclaim":
+      found = true
+      text = text & "!"
+      psr.advance()
+    of "tt_text":
+      found = true
+      text = text & psr.c_tok.value
+      psr.advance()
+    of "tt_num":
+      found = true
+      text = text & psr.c_tok.value
+      psr.advance()
+    of "tt_minus":
+      found = true
+      text = text & "-"
+      psr.advance()
+    of "tt_dollar":
+      found = true
+      text = text & "$"
       psr.advance()
   if text == "":
     return Node(kind: nkNone)
@@ -296,6 +370,38 @@ proc alphaNumSymMoreParser(psr: var parser): Node =
     return Node(kind: nkNone)
   return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
 
+parse_method boldText >> nkTextBold:
+  """
+  BOLDTEXT := ('__' | '**') TEXT ('__' | '**')
+  """
+  var n: Node
+  if not(psr.c_tok.ttype in ["tt_underscore", "tt_star"]):
+    bad()
+  var btype = psr.c_tok.ttype
+  advance()
+  badifnot(btype)
+  n = psr.alphaNumSymTextParser()
+  if n.kind == nkNone:
+    bad()
+  Ntext = n.text
+  badifnot(btype)
+  badifnot(btype)
+  ok()
+parse_method emphText >> nkTextBold:
+  """
+  BOLDTEXT := ('_' | '*') TEXT ('_' | '*')
+  """
+  var n: Node
+  if not(psr.c_tok.ttype in ["tt_underscore", "tt_star"]):
+    bad()
+  var btype = psr.c_tok.ttype
+  advance()
+  n = psr.alphaNumSymTextParser()
+  if n.kind == nkNone:
+    bad()
+  Ntext = n.text
+  badifnot(btype)
+  ok()
 
 parse_method tableSplit >> nkTableSplit:
   """
@@ -450,16 +556,22 @@ parse_method propSec >> nkPropSec:
   ok()
 
 parse_method textLine >> nkTextLine:
-  var text = ""
-  var n = psr.alphaNumSymMoreParser()
-  while n.kind != nkNone:
-    text = text & n.text
-    n = psr.alphaNumSymMoreParser()
-  if text == "":
+  var text: seq[Node] = @[]
+  var nod = Node(kind: nkNone)
+  test(boldTextParser, nod)
+  test(emphTextParser, nod)
+  test(alphaNumSymTextParser, nod)
+  while nod.kind != nkNone:
+    text &= nod
+    nod = Node(kind: nkNone)
+    test(alphaNumSymTextParser, nod)
+    test(boldTextParser, nod)
+    test(emphTextParser, nod)
+  if text.len() == 0:
     bad()
   badifnot("tt_newline")
   Nend_pos = psr.c_tok.pos_start
-  Ntext = text
+  NContains = text
   ok()
   
 parse_method textComment >> nkTextComment:
@@ -561,10 +673,12 @@ parse_method equ >> nkEquation:
   var n: Node
 
   badifnot("tt_dollar")
+  badifnot("tt_dollar")
   n = psr.alphaNumSymEquParser()
   if n.kind == nkNone:
     bad()
   var text = n.text
+  badifnot("tt_dollar")
   badifnot("tt_dollar")
   badifnot("tt_newline")
   Nend_pos = psr.c_tok.pos_start
@@ -633,7 +747,6 @@ parse_method textParEnd >> nkTextParEnd:
   while psr.c_tok.ttype == "tt_newline":
       advance()
   ok()
-
 
 parse_method textSec >> nkTextSec:
   var nodes: seq[Node]

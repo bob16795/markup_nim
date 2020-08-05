@@ -1,6 +1,6 @@
 import strformat, os, strutils
 
-const DEBUG = false
+const DEBUG = true
 
 proc help*(msg: int, app_name: string = "markup") =
   echo &"Usage: {app_name} [OPTIONS] FILES..."
@@ -29,7 +29,7 @@ template debug*(file, message: string) =
   when DEBUG:
     echo "[DBG] ", message, ": ", file
 
-proc output*(text, file, cwd: string) =
+template output*(text, file, cwd: string) =
   if file == "":
     echo text
   else:

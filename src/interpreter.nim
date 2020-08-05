@@ -31,6 +31,8 @@ proc set_prop(props: var Table[string, string], file: var pdf_file, prop: string
   case prop:
   of "font_face":
     file.font_face = value.strip()
+  of "bold_font_face":
+    file.font_bold_face = value.strip()
   of "index":
     file.include_index = (value.strip() == "True")
   of "title_page":
@@ -63,7 +65,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
   case node.kind:
   of nkPropDiv:
     discard
-  of nkPropSec, nkTextSec, nkList:
+  of nkPropSec, nkTextSec, nkList, nkTextLine:
     for i in node.Contains:
       visit(i, file, props, ctx, text)
   of nkPropLine:
@@ -92,6 +94,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
           amac.tags.add([name, value])
         if not(amac.name in ctx):
           ctx.macros.add(amac)
+          echo amac
     of "CNT":
       # <CNT: Prop, by: Value>
       var value = node.tag_value.split("=")[0].strip()
@@ -214,10 +217,14 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
           props[counter] = "0"
       file.add_text(text, 12)
       text = ""
-  of nkTextLine:
+  of nkTextBold:
     if text != "\b":
       var line = node.text
-      text = text & " " & line
+      text = text & " \\b" & line
+  of nkAlphaNumSym:
+    if text != "\b":
+      var line = node.text
+      text = text & " \\n" & line
   of nkHeading1:
     file.add_heading(node.text, 1)
   of nkHeading2:
@@ -239,6 +246,7 @@ proc visitBody*(node: Node, file_name: string, wd: string, prop_pre: Table[strin
   var text: string
   props["output"] = ""
   props["font_face"] = ""
+  props["bold_font_face"] = ""
   props["use"] = ""
   props["file_name"] = file_name
   props["ignore"] = "False"

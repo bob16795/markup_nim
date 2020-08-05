@@ -8,7 +8,8 @@ type
     nkPropLine,     # property line                 leaf
     nkPropDiv,      # property divider              leaf
     nkPropSec,      # property section              branch
-    nkTextLine,     # a line of text                leaf
+    nkTextLine,     # a line of text                branch
+    nkTextBold,     # a Section of text             leaf
     nkTextComment,  # a comment                     leaf
     nkTextParEnd,   # end of paragaph               leaf
     nkTextSec,      # a Section of text             branch
@@ -29,9 +30,9 @@ type
   Node* = object
     start_pos*, end_pos*: position
     case kind*: NodeKind  # the ``kind`` field is the discriminator
-    of nkEquation, nkAlphaNumSym, nkTextLine, nkTextComment, nkHeading1, nkHeading2, nkHeading3, nkListLevel1, nkListLevel2, nkListLevel3:
+    of nkEquation, nkAlphaNumSym, nkTextComment, nkHeading1, nkHeading2, nkHeading3, nkListLevel1, nkListLevel2, nkListLevel3, nkTextBold:
       text*: string
-    of nkBody, nkPropSec, nkTextSec, nkList:
+    of nkBody, nkPropSec, nkTextSec, nkList, nkTextLine:
       Contains*: seq[Node]
     of nkTag:
       tag_name*, tag_value*: string
@@ -71,6 +72,8 @@ proc `$`*(nod: Node): string =
     node_type = "TextSec"
   of nkTextLine:
     node_type = "TextLine"
+  of nkTextBold:
+    node_type = "TextBold"
   of nkTextComment:
     node_type = "TextComment"
   of nkTextParEnd:
@@ -102,9 +105,9 @@ proc `$`*(nod: Node): string =
   of nkTableSplit:
     node_type = "TableSplit"
   case nod.kind:
-  of nkEquation, nkAlphaNumSym, nkTextLine, nkTextComment, nkHeading1, nkHeading2, nkHeading3, nkListLevel1, nkListLevel2, nkListLevel3:
+  of nkEquation, nkAlphaNumSym, nkTextComment, nkHeading1, nkHeading2, nkHeading3, nkListLevel1, nkListLevel2, nkListLevel3, nkTextBold:
     node_value = $nod.text
-  of nkBody, nkPropSec, nkList, nkTextSec:
+  of nkBody, nkPropSec, nkList, nkTextSec, nkTextLine:
     for node in nod.Contains:
       node_value &= "\n  " & ($node).replace("\n", "\n  ")
     node_value &= "\n"

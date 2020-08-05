@@ -28,3 +28,9 @@ nimcache/
 # Test procedure artifacts
 nimble_*.nims
 src/markup
+tags
+
+# files i accedentally make alot
+\\
+1
+2

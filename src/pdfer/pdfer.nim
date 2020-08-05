@@ -18,8 +18,8 @@ type
     current_column*, columns*: int
     media_box*: array[0..1, int]
     title*, author*, source_file_name*: string
-    font_face*, font_face_bold*: string
-    font_obj*: pdf_object
+    font_face*, font_bold_face*: string
+    font_obj*, font_bold_obj*: pdf_object
     include_title_page*, include_index*, include_toc*: bool
     index*: Table[char, Table[string, seq[int]]]
     toc*: OrderedTable[string, array[0..1, int]]
@@ -34,7 +34,7 @@ type
     ratio*: seq[int]
     font_face*: string
 
-proc add_page*(file: var pdf_file, text: string = "", size: float = -1, odd: int = -1) {.gcsafe.}
+proc add_page*(file: var pdf_file, text: string = "", size: float = -1, odd: int = -1, bold: bool = false) {.gcsafe.}
 proc add_index*(file: var pdf_file, offset: int = 0) {.gcsafe.}
 proc get_toc_size*(file: var pdf_file): int {.gcsafe.}
 proc add_space*(file: var pdf_file, space: float) {.gcsafe.}
@@ -42,7 +42,7 @@ proc make_toc*(file: var pdf_file, offset: int): pdf_file {.gcsafe.}
 proc make_title(file: var pdf_file) {.gcsafe.}
 proc init_pdf_file*(): pdf_file {.gcsafe.}
 
-proc get_pdf_objs(tab: var table): seq[pdf_object] = 
+proc get_pdf_objs(tab: var table): seq[pdf_object] =
   var line_y = 0.0
   for row in tab.data:
     var max_row_y = 0.0
@@ -187,8 +187,11 @@ proc sequence(file: var pdf_file): seq[pdf_object] =
   for text in file.text_objs:
     result.add(text)
   result.add(initFontFileObject(file.font_face))
-  result.add(initFontDescObject(file.font_face))
+  result.add(initFontDescObject(file.font_face, false))
+  result.add(initFontFileObject(file.font_bold_face))
+  result.add(initFontDescObject(file.font_bold_face, true))
   result.add(file.font_obj)
+  result.add(file.font_bold_obj)
 
 
 proc finish*(file: var pdf_file) =
@@ -197,6 +200,7 @@ proc finish*(file: var pdf_file) =
   var toc_file: pdf_file
 
   file.font_obj = initFontObject("/F1", file.font_face)
+  file.font_bold_obj = initFontObject("/F2", file.font_bold_face, true)
   if file.include_toc:
     toc_length = file.get_toc_size()
     toc_file = file.make_toc(toc_length)
@@ -212,7 +216,7 @@ proc finish*(file: var pdf_file) =
   for idx, page in file.page_objs:
     text_obj = initStringObject("[ 0 0 612 792 ]")
     file.page_objs[idx].append("/MediaBox", text_obj)
-    text_obj = initStringObject(&"<</Font << /F1 {file.font_obj.ident()} >> >>")
+    text_obj = initStringObject(&"<</Font << /F1 {file.font_obj.ident()} /F2 {file.font_bold_obj.ident()} >> >>")
     file.page_objs[idx].append("/Resources", text_obj)
     file.pages.append("/Kids", page)
   text_obj = initStringObject($len(file.page_objs))
@@ -252,10 +256,10 @@ proc add_equation*(file: var pdf_file, text: string) =
     file.add_space(15)
     var equation_pdf_obj = equation_obj.get_obj(col_x.toInt(), file.y.toInt(), file.font_face)
     file.add_space(15)
-    file.text_objs.add(equation_pdf_obj)
-    file.page_objs[^1].append("/Contents", equation_pdf_obj)
+    file.text_objs.add(equation_pdf_obj.obj)
+    file.page_objs[^1].append("/Contents", equation_pdf_obj.obj)
 
-proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1) =
+proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1, bold: bool = false) =
   var full: bool = false
   if file.y - (size + file.line_spacing) < 100:
     if file.current_column >= file.columns:
@@ -264,22 +268,50 @@ proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1) =
     else:
       file.current_column += 1
       file.y = file.y_start
-      file.add_text(text, size)
+      file.add_text(text, size, bold = bold)
   else:
     var overfill = newSeq[string]()
     var text_obj = initTextObject()
     var column_size = ((file.media_box[0].toFloat-200.0) - (file.column_spacing * (file.columns.toFloat - 1.0))) / file.columns.toFloat
     var col_x = ((column_size + file.column_spacing) * (file.current_column.toFloat - 1.0)) + 100 
-    text_obj.append_text(&"BT\n{size + file.line_spacing} TL\n/F1 {size} Tf\n{col_x} {file.y} Td\n")
+    text_obj.append_text(&"BT\n{size + file.line_spacing} TL\n{col_x} {file.y} Td\n/F1 {size} Tf\n")
     var bs_text = lib.addbs(text).replace("\n", "\n\t")
     if "\n" in bs_text:
       bs_text = "" & bs_text
     for line in text.split("\n"):
-      var pdf_line = newSeq[string]()
-      for word in line.split(" "):
+      var pdf_line: seq[string] = @[]
+      var out_line = "("
+      var bold = false
+      for word in line.strip().split(" "):
         if not full:
-          pdf_line.add(word)
+          if word.len > 1:
+            if word[0..1] == "\\b":
+              if not bold:
+                out_line &= ") Tj\n"
+                out_line &= &"/F2 {size} Tf\n"
+                out_line &= &"({word[2..^1].addbs()}"
+              else:
+                out_line &= &" {word[2..^1].addbs()}"
+              pdf_line.add(word[2..^1])
+              bold = true
+            elif word[0..1] == "\\n":
+              if bold:
+                out_line &= ") Tj\n"
+                out_line &= &"/F1 {size} Tf\n"
+                out_line &= &"({word[2..^1].addbs()}"
+              else:
+                out_line &= &" {word[2..^1].addbs()}"
+              pdf_line.add(word[2..^1])
+              bold = false
+            else:
+              out_line &= &" {word.addbs()}"
+              pdf_line.add(word)
+          else:
+            out_line &= &" {word.addbs()}"
+            pdf_line.add(word)
           if get_text_size(pdf_line.join(" "), size, file.font_face) >= column_size:
+            out_line = out_line[0..^(len(word) + 1)].replace("( ", "(")
+            out_line &= ") Tj\n"
             var word_spacing: float = 1
             if (pdf_line.len - 1) != 0:
               var needs = ( column_size - get_text_size(join(pdf_line[0..^2], " ").strip(), size, file.font_face))
@@ -289,7 +321,9 @@ proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1) =
             var char_spacing: float = 0
             if len(pdf_line) < 3:
               char_spacing = (( column_size - get_text_size(pdf_line[0], size, file.font_face)) / (len(pdf_line[0])).toFloat)
-            text_obj.append_text(&"{word_spacing} {char_spacing} ({join(pdf_line[0..^2], \" \").addbs()}) \"\n")
+            text_obj.append_text(&"T*\n{word_spacing} Tw\n{char_spacing} Tc\n{out_line}")
+            out_line = &"({word}"
+            #text_obj.append_text(&"{word_spacing} {char_spacing} ({join(pdf_line[0..^2], \" \").addbs()}) \"\n")
             file.y -= size + file.line_spacing
             pdf_line = @[word]
             if file.y - (size + file.line_spacing) < 100:
@@ -298,16 +332,18 @@ proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1) =
         else:
           overfill.add(word)
       if full == false:
-        if pdf_line != newSeq[string]():
+        if pdf_line != @[]:
+          out_line &= ") Tj\n"
+          out_line = out_line.replace("( ", "(")
           case align:
           of 1:
-            text_obj.append_text(&"0 0 ({join(pdf_line, \" \").addbs()}) \"\n() '\n")
+            text_obj.append_text(&"0 Tw\n0 Tc\nT*\n{out_line}() '\n")
           of 2:
             var offset = column_size - get_text_size(join(pdf_line, " "), size, file.font_face)
-            text_obj.append_text(&"{offset} 0 Td\n0 0 ({join(pdf_line, \" \").addbs()}) \"\n() '\n")
+            text_obj.append_text(&"{offset} 0 Td\n0 Tw\n0 Tc\nT*\n{out_line}")
           else:
             var offset = (column_size - get_text_size(join(pdf_line, " "), size, file.font_face))/2
-            text_obj.append_text(&"{offset} 0 Td\n0 0 ({join(pdf_line, \" \").addbs()}) \"\n() '\n")
+            text_obj.append_text(&"{offset} 0 Td\n0 Tw\n0 Tc\nT*\n{out_line}")
           file.y -= (size + file.line_spacing)
           file.y -= (size + file.line_spacing)
     if len(text.split("\n")) == 1:
@@ -318,13 +354,13 @@ proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1) =
     if full:
       if file.current_column >= file.columns:
         file.current_column = 1
-        file.add_page(join(overfill, " ")[0..^1].removebs(), size)
+        file.add_page(join(overfill, " ")[0..^1].removebs(), size, bold = bold)
       else:
         file.current_column += 1
         file.y = file.y_start
-        file.add_text(join(overfill, " ")[0..^1].removebs(), size)
+        file.add_text(join(overfill, " ")[0..^1].removebs(), size, bold = bold)
 
-proc add_page*(file: var pdf_file, text: string = "", size: float = -1, odd: int = -1) =
+proc add_page*(file: var pdf_file, text: string = "", size: float = -1, odd: int = -1, bold: bool = false) =
   file.y = 692
   file.y_start = 692
   file.current_column = 1
@@ -469,6 +505,7 @@ proc init_pdf_file*(): pdf_file =
   result.pages = initpagesObject()
   result.outlines = initOutlinesObject()
   result.font_obj = initFontObject("/F1", "times.ttf")
+  result.font_obj = initFontObject("/F2", "timesbold.ttf", true)
   result.level = @[0, 0, 0]
   result.cpt = 0
   result.prt = 0
@@ -480,7 +517,7 @@ proc init_pdf_file*(): pdf_file =
   result.title = ""
   result.author = ""
   result.font_face = "times.ttf"
-  result.font_face_bold = "times.ttf"
+  result.font_bold_face = "timesbold.ttf"
   result.include_title_page = false
   result.include_index = false
   result.include_toc = false

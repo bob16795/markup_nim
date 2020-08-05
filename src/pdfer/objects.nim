@@ -4,7 +4,7 @@ type
   pdf_object* = object of RootObj
     otype*: string
     dict*: Table[string, seq[string]]
-    stream: string
+    stream*: string
     str*: string
 
 proc ident*(obj: pdf_object): string
@@ -22,7 +22,10 @@ proc `$`*(obj: pdf_object): string =
           result &= key & " [" & value.join(" ") & "]" & "\n"
     result &= ">>\n"
   else:
-    result = "<</Length " & $obj.stream.len & ">>\nstream\n" & obj.stream & "endstream\n"
+    result = "<</Length " & $obj.stream.len & ">>\nstream\n" & obj.stream
+    if result[^1] != '\n':
+      result &= "\n"
+    result &= "endstream\n"
 
 proc ident*(obj: pdf_object): string =
   if obj.dict != initTable[string, seq[string]]():
@@ -145,7 +148,7 @@ proc getBaseFont(file: string): string =
 proc initFontFileObject*(file: string): pdf_object =
     result.stream = readFile(file)
 
-proc initFontDescObject*(file: string): pdf_object =
+proc initFontDescObject*(file: string, bold: bool): pdf_object =
     #/StemV 105 
     #/StemH 45 
     #/CapHeight 660 
@@ -157,12 +160,17 @@ proc initFontDescObject*(file: string): pdf_object =
     #/AvgWidth 478 
     result.otype = "FontDescriptor"
     result.append("/FontName", initStringObject("/HelloWorld"))
+    if bold:
+      result.append("/FontWeight", initStringObject("400"))
+      result.append("/Flags", initStringObject("262178"))
+    else:
+      result.append("/FontWeight", initStringObject("700"))
     result.append("/FontFile2", initFontFileObject(file))
-    result.append("/FontBBox",initStringObject("[ −177 −269 1123 866 ]"))
+    result.append("/FontBBox",initStringObject("[ -177 -269 1123 866 ]"))
     result.append("/MissingWidth",initStringObject("255"))
     result.append("/MaxWidth",initStringObject("255"))
 
-proc initFontObject*(name, file: string): pdf_object =
+proc initFontObject*(name, file: string, bold: bool = false): pdf_object =
     discard """
     <<
     /Type/Font
@@ -181,6 +189,6 @@ proc initFontObject*(name, file: string): pdf_object =
     result.append("/Name", initStringObject(name))
     result.append("/BaseFont", initStringObject("/" & getBaseFont(file)))
     result.append("/Encoding", initStringObject("/WinAnsiEncoding"))
-    result.append("/FontDescriptor", initFontDescObject(file))
+    result.append("/FontDescriptor", initFontDescObject(file, bold))
     
     
