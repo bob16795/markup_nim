@@ -29,11 +29,12 @@ proc inLines(lines: seq[string], line: string): bool =
   for i in lines:
     if line.normalize in i.normalize: return true
 
-suite "cli":
+suite "code style":
   test "only terminal.nim echos":
     var (output, exitCode) = execCmdEx("grep echo " & markupPath & " -R --exclude terminal.nim --exclude markup")
     assert output.strip() == ""
 
+suite "cli":
   test "compile_error_nofiles":
     var (output, exitCode) = execMarkup()
     check exitCode == QuitSuccess
@@ -55,8 +56,8 @@ suite "cli":
     var (output, exitCode) = execMarkup("--prop", "lol: fdsa, nope: lol", "cli/prop.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
-    check(inLines(lines, "0 0 ( fdsa) \""))
-    check(inLines(lines, "0 0 ( lol) \""))
+    check(inLines(lines, "(fdsa) Tj"))
+    check(inLines(lines, "(lol) Tj"))
     (output, exitCode) = execMarkup("-p", "lol: fdsa, nope: lol", "cli/prop.mu")
     let lines2 = output.strip().split("\n")
     check(lines == lines2)
@@ -177,35 +178,44 @@ suite "interpreter":
     var (output, exitCode) = execMarkup("-p", "lol:fdsa","interpreter/yaml.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
-    check(inLines(lines, "0 0 ( fdsa) \""))
-    check(inLines(lines, "0 0 ( nope) \""))
-    check(inLines(lines, "0 0 ( new) \""))
+    check(inLines(lines, "(fdsa) Tj"))
+    check(inLines(lines, "(nope) Tj"))
+    check(inLines(lines, "(new) Tj"))
 
   test "macros":
     var (output, exitCode) = execMarkup("interpreter/macros.mu")
     check exitCode == QuitSuccess
     # let lines = output.strip().split("\n")
-    # check(inLines(lines, "0 0 ( hello this is main) \""))
-    # check(inLines(lines, "0 0 ( hello this is file 2) \""))
+    # check(inLines(lines, "( hello this is main) \""))
+    # check(inLines(lines, "( hello this is file 2) \""))
 
   test "include":
     var (output, exitCode) = execMarkup("interpreter/include/main.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
-    check(inLines(lines, "0 0 ( hello this is main) \""))
-    check(inLines(lines, "0 0 ( hello this is file 2) \""))
+    check(inLines(lines, "(hello this is main) Tj"))
+    check(inLines(lines, "(hello this is file 2) Tj"))
 
   test "tagSet":
     var (output, exitCode) = execMarkup("interpreter/tag_set.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
-    check(inLines(lines, "0 0 ( value) \""))
-    check(inLines(lines, "0 0 ( new) \""))
+    check(inLines(lines, "(value) Tj"))
+    check(inLines(lines, "(new) Tj"))
 
-suite "pdfer": 
+suite "pdfer":
   test "prepend":
     var (output, exitCode) = execMarkup("pdfer/prepend.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
-    check(inLines(lines, "0 0 (he llo) \""))
-    check(inLines(lines, "0 0 (cha nged) \""))
+    check(inLines(lines, "(he llo) Tj"))
+    check(inLines(lines, "(cha nged) Tj"))
+
+suite "mathus":
+  test "fractions":
+    var (output, exitCode) = execMarkup("mathus/fractions.mu")
+    check exitCode == QuitSuccess
+    check("100 677 Td\n(z) Tj" in output)
+    check("107 684 Td\n(a) Tj" in output)
+    check("106 670 Td\n(b) Tj" in output)
+    check("106 681 m\n114 681 l\nS\n8 6 Td\n(y) Tj" in output)

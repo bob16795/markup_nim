@@ -1,2 +1,2 @@
-$lol+nope$
+$$lol+nope$$
 empty equation
