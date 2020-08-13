@@ -86,6 +86,10 @@ proc alphaNumSymParser(psr: var parser): Node =
   while found:
     found = false
     case psr.c_tok.ttype:
+    of "tt_scolon":
+      found = true
+      text = text & ";"
+      psr.advance()
     of "tt_underscore":
       found = true
       text = text & "_"
@@ -121,6 +125,10 @@ proc alphaNumSymTagParser(psr: var parser): Node =
   while found:
     found = false
     case psr.c_tok.ttype:
+    of "tt_scolon":
+      found = true
+      text = text & ";"
+      psr.advance()
     of "tt_lparen":
       found = true
       text = text & "("
@@ -200,6 +208,10 @@ proc alphaNumSymEquParser(psr: var parser): Node =
       found = true
       text = text & "+"
       psr.advance()
+    of "tt_scolon":
+      found = true
+      text = text & ";"
+      psr.advance()
     of "tt_ltag":
       found = true
       text = text & "<"
@@ -267,6 +279,10 @@ proc alphaNumSymTextParser(psr: var parser): Node =
       found = true
       text = text & ":"
       psr.advance()
+    of "tt_scolon":
+      found = true
+      text = text & ";"
+      psr.advance()
     of "tt_ltag":
       found = true
       text = text & "<"
@@ -299,7 +315,7 @@ proc alphaNumSymTextParser(psr: var parser): Node =
     return Node(kind: nkNone)
   return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
 
-proc alphaNumSymMoreParser(psr: var parser): Node =
+proc alphaNumSymLineParser(psr: var parser): Node =
   var text = ""
   var found = true
   var start_pos = psr.c_tok.pos_start
@@ -354,6 +370,81 @@ proc alphaNumSymMoreParser(psr: var parser): Node =
       found = true
       text = text & psr.c_tok.value
       psr.advance()
+    of "tt_star":
+      found = true
+      text = text & "*"
+      psr.advance()
+    of "tt_dollar":
+      found = true
+      text = text & "$"
+      psr.advance()
+    of "tt_newline":
+      found = true
+      text = text & "\n"
+      psr.advance()
+  if text == "":
+    return Node(kind: nkNone)
+  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
+
+proc alphaNumSymMoreParser(psr: var parser): Node =
+  var text = ""
+  var found = true
+  var start_pos = psr.c_tok.pos_start
+  while found:
+    found = false
+    case psr.c_tok.ttype:
+    of "tt_lparen":
+      found = true
+      text = text & "("
+      psr.advance()
+    of "tt_rparen":
+      found = true
+      text = text & ")"
+      psr.advance()
+    of "tt_lbrace":
+      found = true
+      text = text & "{"
+      psr.advance()
+    of "tt_rbrace":
+      found = true
+      text = text & "}"
+      psr.advance()
+    of "tt_underscore":
+      found = true
+      text = text & "_"
+      psr.advance()
+    of "tt_plus":
+      found = true
+      text = text & "+"
+      psr.advance()
+    of "tt_colon":
+      found = true
+      text = text & ":"
+      psr.advance()
+    of "tt_scolon":
+      found = true
+      text = text & ";"
+      psr.advance()
+    of "tt_ltag":
+      found = true
+      text = text & "<"
+      psr.advance()
+    of "tt_rtag":
+      found = true
+      text = text & ">"
+      psr.advance()
+    of "tt_exclaim":
+      found = true
+      text = text & "!"
+      psr.advance()
+    of "tt_text":
+      found = true
+      text = text & psr.c_tok.value
+      psr.advance()
+    of "tt_num":
+      found = true
+      text = text & psr.c_tok.value
+      psr.advance()
     of "tt_minus":
       found = true
       text = text & "-"
@@ -387,7 +478,7 @@ parse_method boldText >> nkTextBold:
   badifnot(btype)
   badifnot(btype)
   ok()
-parse_method emphText >> nkTextBold:
+parse_method emphText >> nkTextEmph:
   """
   BOLDTEXT := ('_' | '*') TEXT ('_' | '*')
   """
@@ -514,14 +605,24 @@ parse_method propLine >> nkPropLine:
       bad()
     prop = n.text
     badifnot("tt_colon")
-    n = psr.alphaNumSymMoreParser()
+    if psr.c_tok.ttype == "tt_scolon":
+      advance()
+      n = psr.alphaNumSymLineParser()
+      badifnot("tt_scolon")
+    else:
+      n = psr.alphaNumSymMoreParser()
     if n.kind == nkNone:
       bad()
     value = n.text
   else:
     prop = text
     badifnot("tt_colon")
-    n = psr.alphaNumSymMoreParser()
+    if psr.c_tok.ttype == "tt_scolon":
+      advance()
+      n = psr.alphaNumSymLineParser()
+      badifnot("tt_scolon")
+    else:
+      n = psr.alphaNumSymMoreParser()
     if n.kind == nkNone:
       bad()
     value = n.text

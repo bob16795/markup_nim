@@ -148,7 +148,7 @@ proc getBaseFont(file: string): string =
 proc initFontFileObject*(file: string): pdf_object =
     result.stream = readFile(file)
 
-proc initFontDescObject*(file: string, bold: bool): pdf_object =
+proc initFontDescObject*(file: string, bold: int): pdf_object =
     #/StemV 105 
     #/StemH 45 
     #/CapHeight 660 
@@ -160,17 +160,24 @@ proc initFontDescObject*(file: string, bold: bool): pdf_object =
     #/AvgWidth 478 
     result.otype = "FontDescriptor"
     result.append("/FontName", initStringObject("/HelloWorld"))
-    if bold:
+    if bold == 0:
       result.append("/FontWeight", initStringObject("400"))
+      result.append("/ItalicAngle", initStringObject("0"))
+      result.append("/Flags", initStringObject("0"))
+    elif bold == 1:
+      result.append("/FontWeight", initStringObject("700"))
+      result.append("/ItalicAngle", initStringObject("0"))
       result.append("/Flags", initStringObject("262178"))
     else:
-      result.append("/FontWeight", initStringObject("700"))
+      result.append("/FontWeight", initStringObject("400"))
+      result.append("/ItalicAngle", initStringObject("-30"))
+      result.append("/Flags", initStringObject("0"))
     result.append("/FontFile2", initFontFileObject(file))
     result.append("/FontBBox",initStringObject("[ -177 -269 1123 866 ]"))
     result.append("/MissingWidth",initStringObject("255"))
     result.append("/MaxWidth",initStringObject("255"))
 
-proc initFontObject*(name, file: string, bold: bool = false): pdf_object =
+proc initFontObject*(name, file: string, bold: int = 0): pdf_object =
     discard """
     <<
     /Type/Font

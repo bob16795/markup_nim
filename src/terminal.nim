@@ -1,6 +1,6 @@
 import strformat, os, strutils
 
-const DEBUG = true
+const DEBUG* = true
 
 proc help*(msg: int, app_name: string = "markup") =
   echo &"Usage: {app_name} [OPTIONS] FILES..."

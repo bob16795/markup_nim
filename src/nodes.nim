@@ -9,7 +9,8 @@ type
     nkPropDiv,      # property divider              leaf
     nkPropSec,      # property section              branch
     nkTextLine,     # a line of text                branch
-    nkTextBold,     # a Section of text             leaf
+    nkTextBold,     # a Section of bold text        leaf
+    nkTextEmph,     # a Section of italic text      leaf
     nkTextComment,  # a comment                     leaf
     nkTextParEnd,   # end of paragaph               leaf
     nkTextSec,      # a Section of text             branch
@@ -30,7 +31,7 @@ type
   Node* = object
     start_pos*, end_pos*: position
     case kind*: NodeKind  # the ``kind`` field is the discriminator
-    of nkEquation, nkAlphaNumSym, nkTextComment, nkHeading1, nkHeading2, nkHeading3, nkListLevel1, nkListLevel2, nkListLevel3, nkTextBold:
+    of nkEquation, nkAlphaNumSym, nkTextComment, nkHeading1, nkHeading2, nkHeading3, nkListLevel1, nkListLevel2, nkListLevel3, nkTextBold, nkTextEmph:
       text*: string
     of nkBody, nkPropSec, nkTextSec, nkList, nkTextLine:
       Contains*: seq[Node]
@@ -74,6 +75,8 @@ proc `$`*(nod: Node): string =
     node_type = "TextLine"
   of nkTextBold:
     node_type = "TextBold"
+  of nkTextEmph:
+    node_type = "TextEmph"
   of nkTextComment:
     node_type = "TextComment"
   of nkTextParEnd:
@@ -105,7 +108,7 @@ proc `$`*(nod: Node): string =
   of nkTableSplit:
     node_type = "TableSplit"
   case nod.kind:
-  of nkEquation, nkAlphaNumSym, nkTextComment, nkHeading1, nkHeading2, nkHeading3, nkListLevel1, nkListLevel2, nkListLevel3, nkTextBold:
+  of nkEquation, nkAlphaNumSym, nkTextComment, nkHeading1, nkHeading2, nkHeading3, nkListLevel1, nkListLevel2, nkListLevel3, nkTextBold, nkTextEmph:
     node_value = $nod.text
   of nkBody, nkPropSec, nkList, nkTextSec, nkTextLine:
     for node in nod.Contains:

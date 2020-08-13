@@ -208,8 +208,10 @@ suite "pdfer":
     var (output, exitCode) = execMarkup("pdfer/prepend.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
-    check(inLines(lines, "(he llo) Tj"))
-    check(inLines(lines, "(cha nged) Tj"))
+    check(inLines(lines, "(he) Tj"))
+    check(inLines(lines, "(llo) Tj"))
+    check(inLines(lines, "(cha) Tj"))
+    check(inLines(lines, "(nged) Tj"))
 
 suite "mathus":
   test "fractions":

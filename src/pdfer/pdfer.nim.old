@@ -1,7 +1,7 @@
 import objects, lib
 import tables, strformat, strutils
 import sequtils
-import algorithm, streams
+import algorithm
 import mathus
 
 type
@@ -218,6 +218,8 @@ proc finish*(file: var pdf_file) =
     file.add_index()
 
   for idx, page in file.page_objs:
+    text_obj = initStringObject("[ 0 0 612 792 ]")
+    file.page_objs[idx].append("/MediaBox", text_obj)
     text_obj = initStringObject(&"<</Font << /F1 {file.font_obj.ident()} /F2 {file.font_bold_obj.ident()} /F3 {file.font_emph_obj.ident()} >> >>")
     file.page_objs[idx].append("/Resources", text_obj)
     file.pages.append("/Kids", page)
@@ -262,53 +264,108 @@ proc add_equation*(file: var pdf_file, text: string) =
     file.page_objs[^1].append("/Contents", equation_pdf_obj.obj)
 
 proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1, bold: bool = false) =
-  var text_obj = initTextObject()
-  var column_size = ((file.media_box[0].toFloat-200.0) - (file.column_spacing * (file.columns.toFloat - 1.0))) / file.columns.toFloat
-  var col_x = ((column_size + file.column_spacing) * (file.current_column.toFloat - 1.0)) + 100 
-  var stream = CreateTextStream(col_x.int, (file.y - size - file.line_spacing).int, size, file.line_spacing, "F1", file.font_face, column_size.int, false, text, align)
-  var streams = stream.trim(file.y.int - 100)
-  var offset: float
-  case align:
-  of 2:
-    offset = column_size - streams[0].width.float
-  of 3:
-    offset = (column_size - streams[0].width.float) / 2
-  else:
-    offset = 0
-  text_obj.append_text($streams[0].moveto(col_x + offset, file.y, size, file.line_spacing))
-  file.text_objs.add(text_obj)
-  file.page_objs[^1].append("/Contents", text_obj)
-  text_obj = initTextObject()
-  var overflow = streams[1]
-  while overflow != Stream():
+  var full: bool = false
+  if file.y - (size + file.line_spacing) < 100:
     if file.current_column >= file.columns:
-      file.add_page()
+      file.current_column = 1
+      file.add_page(text, size)
     else:
       file.current_column += 1
       file.y = file.y_start
-    streams = overflow.trim(file.y.int - 100)
-    col_x = ((column_size + file.column_spacing) * (file.current_column.toFloat - 1.0)) + 100 
-    case align:
-    of 2:
-      offset = column_size - streams[0].width.float
-    of 3:
-      offset = column_size / 2 - streams[0].width.float / 2
-    else:
-      offset = 0
-    text_obj.append_text($streams[0].moveto(col_x + offset, file.y, size, file.line_spacing))
+      file.add_text(text, size, bold = bold)
+  else:
+    var overfill = newSeq[string]()
+    var text_obj = initTextObject()
+    var column_size = ((file.media_box[0].toFloat-200.0) - (file.column_spacing * (file.columns.toFloat - 1.0))) / file.columns.toFloat
+    var col_x = ((column_size + file.column_spacing) * (file.current_column.toFloat - 1.0)) + 100 
+    text_obj.append_text(&"BT\n{col_x} {file.y} Td\n{size + file.line_spacing} TL\n/F1 {size} Tf\n")
+    for line in text.split("\n"):
+      var pdf_line: seq[string] = @[]
+      var out_line = "("
+      var bold = 0
+      for w in line.strip().split(" "):
+        var word = w.strip()
+        if not full:
+          if word == "\\n":
+            if bold != 0:
+              out_line &= " ) Tj\n"
+              out_line &= &"/F1 {size} Tf\n"
+            bold = 0
+            continue
+          elif word == "\\b":
+            if bold != 1:
+              if word != line.strip().split(" ")[0]:
+                out_line &= " "
+              out_line &= ") Tj\n"
+              out_line &= &"/F2 {size} Tf\n"
+            bold = 1
+            continue
+          elif word == "\\e":
+            if bold != 2:
+              out_line &= " ) Tj\n"
+              out_line &= &"/F3 {size} Tf\n"
+            bold = 0
+            continue
+          else:
+            out_line &= &" {word.addbs()}"
+            pdf_line.add(word)
+          if get_text_size(pdf_line.join(" "), size, file.font_face) >= column_size:
+            try: out_line = out_line[0..^(len(word.addbs()) + 1)].replace("( ", "(")
+            except: discard
+            out_line &= ") Tj\n"
+            var word_spacing: float = 1
+            if (pdf_line.len - 1) != 0:
+              var needs = ( column_size - get_text_size(join(pdf_line[0..^2], " ").strip(), size, file.font_face))
+              word_spacing = (needs / (len(pdf_line[0..^3])).toFloat())
+            if $word_spacing == "inf" or $word_spacing == "-inf":
+              word_spacing = 0
+            var char_spacing: float = 0
+            if len(pdf_line) < 3:
+              char_spacing = (( column_size - get_text_size(pdf_line[0], size, file.font_face)) / (len(pdf_line[0])).toFloat)
+            text_obj.append_text(&"T*\n{word_spacing} Tw\n{char_spacing} Tc\n{out_line}")
+            out_line = &"({word.addbs()}"
+            #text_obj.append_text(&"{word_spacing} {char_spacing} ({join(pdf_line[0..^2], \" \").addbs()}) \"\n")
+            file.y -= size + file.line_spacing
+            pdf_line = @[word]
+            if file.y - (size + file.line_spacing) < 100:
+              full = true
+              overfill = pdf_line
+        else:
+          overfill.add(word)
+      if full == false:
+        if pdf_line != @[]:
+          out_line &= ") Tj\n"
+          out_line = out_line.replace("( ", "(")
+          case align:
+          of 1:
+            text_obj.append_text(&"0 Tw\n0 Tc\nT*\n{out_line}() '\n")
+          of 2:
+            var offset = column_size - get_text_size(join(pdf_line, " "), size, file.font_face)
+            text_obj.append_text(&"{offset} 0 Td\n0 Tw\n0 Tc\nT*\n{out_line}")
+          else:
+            var offset = (column_size - get_text_size(join(pdf_line, " "), size, file.font_face))/2
+            text_obj.append_text(&"{offset} 0 Td\n0 Tw\n0 Tc\nT*\n{out_line}")
+          file.y -= (size + file.line_spacing)
+          file.y -= (size + file.line_spacing)
+    if len(text.split("\n")) == 1:
+      file.y += size + file.line_spacing
+    text_obj.append_text("ET\n")
     file.text_objs.add(text_obj)
     file.page_objs[^1].append("/Contents", text_obj)
-    text_obj = initTextObject()
-    overflow = streams[1]
-  file.y -= streams[0].height.float
+    if full:
+      if file.current_column >= file.columns:
+        file.current_column = 1
+        file.add_page(join(overfill, " ")[0..^1], size, bold = bold)
+      else:
+        file.current_column += 1
+        file.y = file.y_start
+        file.add_text(join(overfill, " ")[0..^1], size, bold = bold)
 
 proc add_page*(file: var pdf_file, text: string = "", size: float = -1, odd: int = -1, bold: bool = false) =
-  file.y = file.media_box[1].float - 100
-  file.y_start = file.y
+  file.y = 692
+  file.y_start = 692
   file.current_column = 1
   var page = initPageObject()
-  var text_obj = initStringObject(&"[ 0 0 {file.mediabox[0]} {file.mediabox[1]} ]")
-  page.append("/MediaBox", text_obj)
   if odd != -1:
     if (len(file.page_objs) mod 2 == 0) == (odd == 0):
       file.page_objs.add(page)
@@ -321,7 +378,7 @@ proc add_space*(file: var pdf_file, space: float) =
   if file.y < 100:
     file.add_page()
 
-proc add_vrule*(file: var pdf_file, padding_top, padding_bot: float, perc: float = 100) =
+proc add_line*(file: var pdf_file, padding_top, padding_bot: float, perc: float = 100) =
   file.add_space(padding_top)
   var obj = initTextObject()
   var size = file.media_box[0].toFloat() - ((file.media_box[0].toFloat()-200) * (perc / 100))
@@ -330,13 +387,6 @@ proc add_vrule*(file: var pdf_file, padding_top, padding_bot: float, perc: float
   file.text_objs.add(obj)
   file.page_objs[^1].append("/Contents", obj)
   file.add_space(padding_bot)
-
-proc add_line*(file: var pdf_file, x1, y1, x2, y2: float, obstructs: bool = true) =
-  var obj = initTextObject()
-  var stream = CreateLineStream(x1, file.y + y1, x2, file.y + y2)
-  obj.append_text($stream)
-  file.text_objs.add(obj)
-  file.page_objs[^1].append("/Contents", obj)
 
 proc add_heading*(file: var pdf_file, text: string, level: int) =
   var align = 1
@@ -382,7 +432,7 @@ proc add_heading*(file: var pdf_file, text: string, level: int) =
         file.add_page(odd = 1)
       file.parts[len(file.page_objs) - 1] = text
       file.add_space(200)
-      file.add_vrule(0, 0)
+      file.add_line(0, 0)
       file.add_text(&"Part {file.prt}", size.toFloat(), 3)
   if level == 2:
     size = 24
@@ -390,7 +440,7 @@ proc add_heading*(file: var pdf_file, text: string, level: int) =
     size = 16
   file.add_text(&"{number}{text}", size.toFloat(), align)
   if line:
-    file.add_vrule(10, 30)
+    file.add_line(10, 30)
   if level == -2:
     file.add_page()
   file.set_cols(col_start)
@@ -409,11 +459,11 @@ proc add_index*(file: var pdf_file, offset: int = 0) =
   file.add_page()
   file.set_cols(1)
   file.add_text("INDEX", 32, 3)
-  file.add_vrule(5, 5)
+  file.add_line(5, 5)
   file.set_cols(3)
   var column_size = ((file.media_box[0].toFloat-200.0) - (file.column_spacing * (file.columns.toFloat - 1.0))) / file.columns.toFloat 
   for letter, words in file.index:
-    file.add_text($letter, 24, 3)
+    file.add_text($letter, 24)
     for word, pages in words:
       var size = get_text_size(word, 12, file.font_face)
       file.add_text(word, 12.0)
@@ -431,9 +481,8 @@ proc get_toc_size*(file: var pdf_file): int =
 
 proc make_toc*(file: var pdf_file, offset: int): pdf_file =
   var toc_file = init_pdf_file()
-  toc_file.media_box = file.media_box
   toc_file.add_text("Table Of Contents", 32, 3)
-  toc_file.add_vrule(5, 5)
+  toc_file.add_line(5, 5)
   toc_file.set_cols(2)
   file.toc.sort(tocCmp)
   for heading, idx in file.toc:
@@ -444,10 +493,9 @@ proc make_toc*(file: var pdf_file, offset: int): pdf_file =
 
 proc make_title(file: var pdf_file) =
   var title_file = init_pdf_file()
-  title_file.media_box = file.media_box
-  title_file.add_vrule(30, 15)
+  title_file.add_line(30, 15)
   title_file.add_text(file.title.toUpperascii(), 48, 3)
-  title_file.add_vrule(30, 10)
+  title_file.add_line(30, 10)
   title_file.add_text(file.author, 32, 3)
   file.text_objs = concat(title_file.text_objs, file.text_objs)
   file.page_objs = concat(title_file.page_objs, file.page_objs)

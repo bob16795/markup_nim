@@ -21,12 +21,14 @@ type
 #  # if re.match(prop, re"<*:*>"):
 #  #   discard
 
-proc initOutput(file: var pdf_file, props: var Table[string, string]): int_return =
+proc initOutput(file: var pdf_file, props: var Table[string,
+    string]): int_return =
   result.file = $file
   result.props = props
 
 
-proc set_prop(props: var Table[string, string], file: var pdf_file, prop: string, value: string) =
+proc set_prop(props: var Table[string, string], file: var pdf_file,
+    prop: string, value: string) =
   props[prop] = value
   case prop:
   of "font_face":
@@ -61,7 +63,8 @@ proc `in`(value: string, ctx: context): bool =
       return true
   return false
 
-proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx: var context, text: var string) =
+proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
+    ctx: var context, text: var string) =
   case node.kind:
   of nkPropDiv:
     discard
@@ -73,7 +76,8 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
       props.set_prop(file, node.prop.strip(), node.value.strip())
       return
     if not(node.condition.strip() in props):
-      initError(node.start_condition, node.start_condition, "Prop allready exists", "'" & node.condition.strip() & "'")
+      initError(node.start_condition, node.start_condition,
+          "Prop allready exists", "'" & node.condition.strip() & "'")
     if node.invert == (props[node.condition.strip()] == "False"):
       props.set_prop(file, node.prop.strip(), node.value.strip())
       return
@@ -122,12 +126,28 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
     of "PAG":
       # <PAG>
       file.add_page()
+    of "PAGW":
+      file.media_box[0] = node.tag_value.strip().parseInt()
+    of "PAGH":
+      file.media_box[1] = node.tag_value.strip().parseInt()
     of "LIN":
+      var args = node.tag_value.strip().split(",")
+      if args.len == 1:
+        try:
+          file.add_vrule(10, 10, node.tag_value.strip().parseFloat())
+        except:
+          file.add_vrule(10, 10)
+      elif args.len == 4:
+        try:
+          file.add_line(args[0].strip().parseFloat(), args[1].strip().parseFloat(), args[2].strip().parseFloat(), args[3].strip().parseFloat())
+        except:
+          discard
+    of "VBRK":
       # <PAG>
       try:
-        file.add_line(10, 10, node.tag_value.strip().parseFloat())
+        file.add_vrule(10, 10, node.tag_value.strip().parseFloat())
       except:
-        file.add_line(10, 10)
+        file.add_vrule(10, 10)
     of "LINEBR":
       # <LINEBR>
       file.add_text("", 12)
@@ -166,8 +186,10 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
       visit(row, file, props, ctx, text)
     file.add_table(ctx.tab)
   of nkTableHeader:
-    var col_size = ((file.media_box[0]-200).toFloat() - (file.column_spacing * (file.columns - 1).toFloat())) / file.columns.toFloat()
-    var col_x = ((col_size + file.column_spacing) * (file.current_column - 1).toFloat()) + 100.0
+    var col_size = ((file.media_box[0]-200).toFloat() - (file.column_spacing * (
+        file.columns - 1).toFloat())) / file.columns.toFloat()
+    var col_x = ((col_size + file.column_spacing) * (file.current_column -
+        1).toFloat()) + 100.0
     ctx.tab = initTableObject(col_x, file.y, col_size, len(node.header_columns), node.ratio)
   of nkTableRow:
     ctx.tab.append(node.row_columns)
@@ -220,11 +242,15 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
   of nkTextBold:
     if text != "\b":
       var line = node.text
-      text = text & " \\b" & line
+      text = text & " \\b " & line
+  of nkTextEmph:
+    if text != "\b":
+      var line = node.text
+      text = text & " \\e " & line
   of nkAlphaNumSym:
     if text != "\b":
       var line = node.text
-      text = text & " \\n" & line
+      text = text & " \\n " & line
   of nkHeading1:
     file.add_heading(node.text, 1)
   of nkHeading2:
@@ -238,9 +264,11 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string], ctx
   of nkListLevel3:
     file.add_text("    - " & node.text, 12)
   else:
-    initError(node.start_pos, node.end_pos, "Not Implemented", "'visit" & $node.kind & "'")
+    initError(node.start_pos, node.end_pos, "Not Implemented", "'visit" &
+        $node.kind & "'")
 
-proc visitBody*(node: Node, file_name: string, wd: string, prop_pre: Table[string, string]): int_return =
+proc visitBody*(node: Node, file_name: string, wd: string, prop_pre: Table[
+    string, string]): int_return =
   var file: pdf_file
   var props: Table[string, string]
   var text: string

@@ -18,6 +18,23 @@ proc get_text_size*(text: cstring, size: float, font_file: string): float =
   discard faces[c_intsize].sizeText(text, w, h)
   result += wid.toFloat
 
+proc get_text_size_spacing*(text: string, size: float, font_file: string, char_spacing, word_spacing: float): float =
+  if not(ttfWasInit()):
+    discard ttfinit()
+  var c_intsize: cint = size.cint
+  if not(c_intsize in faces):
+    faces[c_intsize] = ttf.openFont(font_file, c_intsize)
+  var wspace = word_spacing.cint
+  var h: ptr cint
+  if wspace == 0:
+    discard faces[c_intsize].sizeText(" ", wspace.addr, h)
+  for word in text.split(" "):
+    var wid: cint = 0
+    discard faces[c_intsize].sizeText(word, wid.addr, h)
+    result += wid.float
+    result += char_spacing * (len(word).float - 1)
+  result += wspace.float * (len(text.split(" ")).float - 1)
+
 proc lib_deinit*() =
   for s, font in faces:
     close(font)
