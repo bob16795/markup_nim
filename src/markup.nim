@@ -42,6 +42,13 @@ proc compile(file: string, prop: Table[string, string], wd: string, tree: int) =
     output($ast, "", cwd)
   of 2:
     output($toks, "", cwd)
+  of 3:
+    var output = visitBody(ast, file_new, cwd, prop)
+    var output_file = output.props["output"]
+    var ignore = output.props["ignore"]
+    if ignore != "True":
+      output(output.file, output_file, cwd)
+      wrote += 1
   else:
     debug(file, "idk how your here")
 
@@ -71,6 +78,8 @@ proc main() =
     of cmdEnd: doAssert(false)
     of cmdShortOption, cmdLongOption:
       case key:
+      of "I", "no-use":
+        tree = 3
       of "t", "tree":
         tree = 1
       of "k", "token-tree":
@@ -79,7 +88,7 @@ proc main() =
         prev = key
     of cmdArgument:
       if prev == "":
-        files.add(key) 
+        files.add(key)
       else:
         case prev:
         of "p", "prop":

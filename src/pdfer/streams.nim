@@ -118,17 +118,20 @@ proc CleanStream(S: Stream): Stream =
   result.height = height.int - result.y
   result.width = width.int - result.x
 
-proc highlightStream*(S: Stream, R, G, B: float): Stream =
+proc `&`*(A, B: Stream): Stream {.gcsafe.}
+
+proc highlightStream*(St: Stream, R, G, B: float): Stream =
+  var S = St.CleanStream()
   result.text &= &"ET\n"
   result.text &= &"{R} {G} {B} RG\n"
   result.text &= &"{R} {G} {B} rg\n"
-  result.text &= &"{S.x} {S.y} {S.width} {S.height} re\n"
+  result.text &= &"{S.x} {S.y - S.height} {S.width} {S.height} re\n"
   result.text &= &"f\n"
   result.text &= &"0 0 0 RG\n"
   result.text &= &"0 0 0 rg\n"
   result.text &= &"BT\n"
   #result.text &= &"{-S.width} {-S.height} Td\n"
-  result.text &= S.text
+  result = result & S
   return(CleanStream(result))
 
 proc CreateTextStream*(x, y: int, size, linespacing: float, font, font_face: string, width: int, newline: bool, text: string, align: int = 1): Stream =

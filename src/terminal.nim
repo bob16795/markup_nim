@@ -1,6 +1,6 @@
 import strformat, os, strutils
 
-const DEBUG* = true
+const DEBUG* = false
 
 proc help*(msg: int, app_name: string = "markup") =
   echo &"Usage: {app_name} [OPTIONS] FILES..."
@@ -16,7 +16,8 @@ proc help*(msg: int, app_name: string = "markup") =
     echo "-h,\t--help\tShow this message and exit."
     echo "-p,\t--prop\tPrepend properties to document."
     echo "-t,\t--tree\tporints the ast and exits."
-    echo "-k,\t--token-tree\tporints the tokens and exits."
+    echo "-k,\t--token-tree\tpoints the tokens and exits."
+    echo "-I,\t--no-use\tdisables the use prop"
     echo ""
   else:
     discard

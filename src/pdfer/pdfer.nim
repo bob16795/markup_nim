@@ -17,7 +17,7 @@ type
     line_spacing*, column_spacing*: float
     current_column*, columns*: int
     media_box*: array[0..1, int]
-    title*, author*, source_file_name*: string
+    title*, author*, source_file_name*, date*: string
     font_face*, font_bold_face*, font_emph_face*: string
     font_obj*, font_bold_obj*, font_emph_obj*: pdf_object
     include_title_page*, include_index*, include_toc*: bool
@@ -25,6 +25,8 @@ type
     toc*: OrderedTable[string, array[0..1, int]]
     header*, footer*: seq[string]
     y*, y_start*: float
+  color* = object
+    r*, g*, b*: float
   table* = object
     data*: seq[seq[string]]
     heading*: seq[string]
@@ -261,7 +263,8 @@ proc add_equation*(file: var pdf_file, text: string) =
     file.text_objs.add(equation_pdf_obj.obj)
     file.page_objs[^1].append("/Contents", equation_pdf_obj.obj)
 
-proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1, bold: bool = false) =
+
+proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1, bold: bool = false, bg, fg: color = color(r: 0, g: 0, b: 0)) =
   var text_obj = initTextObject()
   var column_size = ((file.media_box[0].toFloat-200.0) - (file.column_spacing * (file.columns.toFloat - 1.0))) / file.columns.toFloat
   var col_x = ((column_size + file.column_spacing) * (file.current_column.toFloat - 1.0)) + 100 
@@ -275,7 +278,7 @@ proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1, bo
     offset = (column_size - streams[0].width.float) / 2
   else:
     offset = 0
-  text_obj.append_text($streams[0].moveto(col_x + offset, file.y, size, file.line_spacing))
+  text_obj.append_text($streams[0].moveto(col_x + offset, file.y, size, file.line_spacing).highlightStream(bg.r, bg.g, bg.b))
   file.text_objs.add(text_obj)
   file.page_objs[^1].append("/Contents", text_obj)
   text_obj = initTextObject()
@@ -295,7 +298,7 @@ proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1, bo
       offset = column_size / 2 - streams[0].width.float / 2
     else:
       offset = 0
-    text_obj.append_text($streams[0].moveto(col_x + offset, file.y, size, file.line_spacing))
+    text_obj.append_text($streams[0].moveto(col_x + offset, file.y, size, file.line_spacing).highlightStream(bg.r, bg.g, bg.b))
     file.text_objs.add(text_obj)
     file.page_objs[^1].append("/Contents", text_obj)
     text_obj = initTextObject()
@@ -449,6 +452,7 @@ proc make_title(file: var pdf_file) =
   title_file.add_text(file.title.toUpperascii(), 48, 3)
   title_file.add_vrule(30, 10)
   title_file.add_text(file.author, 32, 3)
+  title_file.add_text(file.date, 16, 3)
   file.text_objs = concat(title_file.text_objs, file.text_objs)
   file.page_objs = concat(title_file.page_objs, file.page_objs)
 

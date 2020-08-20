@@ -1,4 +1,5 @@
 import osproc, unittest, strutils, os, sequtils, sugar
+import ../src/parser
 
 var rootDir = getCurrentDir().parentDir()
 var markupPath = rootDir / "src" / addFileExt("markup", ExeExt)
@@ -56,8 +57,8 @@ suite "cli":
     var (output, exitCode) = execMarkup("--prop", "lol: fdsa, nope: lol", "cli/prop.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
-    check(inLines(lines, "(fdsa) Tj"))
-    check(inLines(lines, "(lol) Tj"))
+    check(inLines(lines, "(fdsa ) Tj"))
+    check(inLines(lines, "(lol ) Tj"))
     (output, exitCode) = execMarkup("-p", "lol: fdsa, nope: lol", "cli/prop.mu")
     let lines2 = output.strip().split("\n")
     check(lines == lines2)
@@ -151,8 +152,8 @@ suite "parser":
     var (output, exitCode) = execMarkup("-t","parser/tags.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
-    check(inLines(lines, "    <Tag: lol == nope>"))
-    check(inLines(lines, "    <Tag: lol == >"))
+    check(inLines(lines, "    <Tag: lol: nope>"))
+    check(inLines(lines, "    <Tag: lol>"))
 
   test "textHeader":
     var (output, exitCode) = execMarkup("-t","parser/headings.mu")
@@ -178,9 +179,9 @@ suite "interpreter":
     var (output, exitCode) = execMarkup("-p", "lol:fdsa","interpreter/yaml.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
-    check(inLines(lines, "(fdsa) Tj"))
-    check(inLines(lines, "(nope) Tj"))
-    check(inLines(lines, "(new) Tj"))
+    check(inLines(lines, "(fdsa ) Tj"))
+    check(inLines(lines, "(nope ) Tj"))
+    check(inLines(lines, "(new ) Tj"))
 
   test "macros":
     var (output, exitCode) = execMarkup("interpreter/macros.mu")
@@ -193,25 +194,25 @@ suite "interpreter":
     var (output, exitCode) = execMarkup("interpreter/include/main.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
-    check(inLines(lines, "(hello this is main) Tj"))
-    check(inLines(lines, "(hello this is file 2) Tj"))
+    check(inLines(lines, "(hello this is main ) Tj"))
+    check(inLines(lines, "(hello this is file 2 ) Tj"))
 
-  test "tagSet":
-    var (output, exitCode) = execMarkup("interpreter/tag_set.mu")
+  test "tagPRP":
+    var (output, exitCode) = execMarkup("interpreter/tag_prp.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
-    check(inLines(lines, "(value) Tj"))
-    check(inLines(lines, "(new) Tj"))
+    check(inLines(lines, "(value ) Tj"))
+    check(inLines(lines, "(new ) Tj"))
 
 suite "pdfer":
   test "prepend":
     var (output, exitCode) = execMarkup("pdfer/prepend.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
-    check(inLines(lines, "(he) Tj"))
-    check(inLines(lines, "(llo) Tj"))
-    check(inLines(lines, "(cha) Tj"))
-    check(inLines(lines, "(nged) Tj"))
+    check(inLines(lines, "(he ) Tj"))
+    check(inLines(lines, "(llo ) Tj"))
+    check(inLines(lines, "(cha ) Tj"))
+    check(inLines(lines, "(nged ) Tj"))
 
 suite "mathus":
   test "fractions":

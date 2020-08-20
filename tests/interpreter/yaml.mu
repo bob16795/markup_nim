@@ -1,11 +1,11 @@
-()lol()
+<PRS: ()lol()>
 
 ---
 lol: nope
 ---
-()lol()
+<PRS: ()lol()>
 
 ---
 lol: new
 ---
-()lol()
+<PRS: ()lol()>

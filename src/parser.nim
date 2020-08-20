@@ -161,6 +161,14 @@ proc alphaNumSymTagParser(psr: var parser): Node =
       found = true
       text = text & "-"
       psr.advance()
+    of "tt_plus":
+      found = true
+      text = text & "+"
+      psr.advance()
+    of "tt_equals":
+      found = true
+      text = text & "="
+      psr.advance()
     of "tt_text":
       found = true
       text = text & psr.c_tok.value
@@ -271,6 +279,10 @@ proc alphaNumSymTextParser(psr: var parser): Node =
       found = true
       text = text & "+"
       psr.advance()
+    of "tt_minus":
+      found = true
+      text = text & "-"
+      psr.advance()
     of "tt_star":
       found = true
       text = text & "*"
@@ -303,10 +315,6 @@ proc alphaNumSymTextParser(psr: var parser): Node =
       found = true
       text = text & psr.c_tok.value
       psr.advance()
-    of "tt_minus":
-      found = true
-      text = text & "-"
-      psr.advance()
     of "tt_dollar":
       found = true
       text = text & "$"
@@ -322,6 +330,10 @@ proc alphaNumSymLineParser(psr: var parser): Node =
   while found:
     found = false
     case psr.c_tok.ttype:
+    of "tt_equals":
+      found = true
+      text = text & "="
+      psr.advance()
     of "tt_lparen":
       found = true
       text = text & "("
@@ -358,6 +370,10 @@ proc alphaNumSymLineParser(psr: var parser): Node =
       found = true
       text = text & ">"
       psr.advance()
+    of "tt_ident":
+      found = true
+      text = text & "  "
+      psr.advance()
     of "tt_exclaim":
       found = true
       text = text & "!"
@@ -377,6 +393,14 @@ proc alphaNumSymLineParser(psr: var parser): Node =
     of "tt_dollar":
       found = true
       text = text & "$"
+      psr.advance()
+    of "tt_hash":
+      found = true
+      text = text & "#"
+      psr.advance()
+    of "tt_minus":
+      found = true
+      text = text & "-"
       psr.advance()
     of "tt_newline":
       found = true
@@ -461,6 +485,29 @@ proc alphaNumSymMoreParser(psr: var parser): Node =
     return Node(kind: nkNone)
   return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
 
+parse_method codeblock >> nkCodeBlock:
+  """
+  CODEBLOCK := '```' TEXT? '\n' CODE  '```\n'
+  """
+  var n: Node
+  advance()
+  badifnot("tt_backtick")
+  badifnot("tt_backtick")
+  badifnot("tt_backtick")
+  n = psr.alphaNumSymTextParser()
+  if n.kind != nkNone:
+    node.lang = n.text
+  badifnot("tt_newline")
+  n = psr.alphaNumSymLineParser()
+  if n.kind == nkNone:
+    bad()
+  Ncode = n.text
+  badifnot("tt_backtick")
+  badifnot("tt_backtick")
+  badifnot("tt_backtick")
+  badifnot("tt_newline")
+  ok()
+
 parse_method boldText >> nkTextBold:
   """
   BOLDTEXT := ('__' | '**') TEXT ('__' | '**')
@@ -478,9 +525,10 @@ parse_method boldText >> nkTextBold:
   badifnot(btype)
   badifnot(btype)
   ok()
+
 parse_method emphText >> nkTextEmph:
   """
-  BOLDTEXT := ('_' | '*') TEXT ('_' | '*')
+  EMPHTEXT := ('_' | '*') TEXT ('_' | '*')
   """
   var n: Node
   if not(psr.c_tok.ttype in ["tt_underscore", "tt_star"]):
@@ -652,6 +700,8 @@ parse_method propSec >> nkPropSec:
   n = psr.propDivParser()
   if n.kind == nkNone:
     bad()
+  while psr.c_tok.ttype == "tt_newline":
+    advance()
   Nend_pos = psr.c_tok.pos_start
   NContains = nodes & n
   ok()
@@ -853,6 +903,7 @@ parse_method textSec >> nkTextSec:
   var nodes: seq[Node]
   var n = psr.textCommentParser()
   test(textListParser, n)
+  test(codeblockParser, n)
   test(equParser, n)
   test(tagParser, n)
   test(textHeadingParser, n)
@@ -862,6 +913,7 @@ parse_method textSec >> nkTextSec:
     nodes.add(n)
     n = psr.textCommentParser()
     test(textListParser, n)
+    test(codeblockParser, n)
     test(equParser, n)
     test(tagParser, n)
     test(textHeadingParser, n)
@@ -895,7 +947,7 @@ proc bodyParser(psr: var parser): Node =
       psr.goto(start)
       node = psr.textSecParser()
   if psr.c_tok.ttype != "tt_eof":
-    initError(psr.c_tok.pos_start, psr.c_tok.pos_end, "not at eof", "lastparsed =\n---" & $Nodes[^1] & "---\n")
+    initError(psr.c_tok.pos_start, psr.c_tok.pos_end, "not at eof", "lastparsed =\n---\n" & $Nodes[^1] & "\n---")
   return Node(start_pos: start_pos,
               end_pos: psr.c_tok.pos_start,
               kind: nkBody,

@@ -14,6 +14,7 @@ type
     nkTextComment,  # a comment                     leaf
     nkTextParEnd,   # end of paragaph               leaf
     nkTextSec,      # a Section of text             branch
+    nkCodeBlock,    # a multiline section of code   leaf
     nkTag,          # a <> tag                      leaf
     nkEquation,     # a $Equation$                  leaf
     nkHeading1,     # heading level 1               leaf
@@ -41,6 +42,9 @@ type
       invert*: bool
       condition*, prop*, value*: string
       start_condition*, start_statment*, end_statment*: position
+    of nkCodeBlock:
+      code*: string
+      lang*: string
     of nkTable:
       rows*: seq[Node]
     of nkTableHeader:
@@ -57,6 +61,8 @@ type
 proc `$`*(nod: Node): string =
   var node_type, node_value: string
   case nod.kind:
+  of nkCodeBlock:
+    node_type = "CodeBlock"
   of nkAlphaNumSym:
     node_type = "AlphaNumSym"
   of nkBody:
@@ -128,11 +134,16 @@ proc `$`*(nod: Node): string =
     node_value &= "\n"
   of nkNone, nkPropDiv, nkTextParEnd, nkTableSplit:
     node_value = "None"
+  of nkCodeBlock:
+    node_value = nod.lang & ": {" & nod.code & "}"
   of nkTag:
-    node_value = nod.tag_name.strip() & " == " & nod.tag_value.strip()
+    if nod.tag_value.strip() != "":
+      node_value = nod.tag_name.strip() & ": " & nod.tag_value.strip()
+    else:
+      node_value = nod.tag_name.strip()
   of nkPropLine:
     if nod.condition != "":
-      node_value = nod.condition.strip() & " == " & $not(nod.invert) & " then " & nod.prop.strip() & " = " & nod.value.strip()
+      node_value = nod.condition.strip() & ": " & $not(nod.invert) & " then " & nod.prop.strip() & " = " & nod.value.strip()
     else:
       node_value = nod.prop.strip() & " = " & nod.value.strip()
   return ("<" & node_type & ": " & node_value & ">").replace("><", ">\n<")

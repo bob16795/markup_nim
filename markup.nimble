@@ -11,6 +11,7 @@ srcDir       = "src"
 
 requires "nim >= 0.10.0"
 requires "sdl2"
+requires "tempfile"
 
 import distros
 
