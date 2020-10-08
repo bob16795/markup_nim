@@ -270,9 +270,9 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
   of nkListLevel1:
     file.add_text("- " & node.text, 12)
   of nkListLevel2:
-    file.add_text("  - " & node.text, 12)
-  of nkListLevel3:
     file.add_text("    - " & node.text, 12)
+  of nkListLevel3:
+    file.add_text("        - " & node.text, 12)
   of nkCodeBlock:
     if text != "\b" and text != "":
       if "prepend" in props:
@@ -303,7 +303,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
         visit(new_node, file, props, ctx, text)
     else:
       for s in node.code.strip.split("\n"):
-        file.add_text("> " & s, 12)
+        file.add_text("> " & s, 12, bg = color(r: 0.7, g: 0.7, b: 0.7))
   else:
     initError(node.start_pos, node.end_pos, "Not Implemented", "'visit" &
         $node.kind & "'")

@@ -1,6 +1,5 @@
 import sdl2/ttf as ttf
 import strutils, segfaults, tables
-import ../terminal
 
 var faces {.threadvar.}: Table[cint, ttf.FontPtr]
 
@@ -15,8 +14,11 @@ proc get_text_size*(text: cstring, size: float, font_file: string): float =
   var wid: cint = 0
   var w = wid.addr
   var h: ptr cint
-  discard faces[c_intsize].sizeText(text, w, h)
-  result += wid.toFloat
+  try:
+    discard faces[c_intsize].sizeText(text, w, h)
+    result += wid.toFloat
+  except:
+    return 20
 
 proc get_text_size_spacing*(text: string, size: float, font_file: string, char_spacing, word_spacing: float): float =
   if not(ttfWasInit()):

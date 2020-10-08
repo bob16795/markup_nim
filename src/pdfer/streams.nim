@@ -1,39 +1,81 @@
 import strformat
 import strutils
-import sequtils
 import lib, math
-import ../terminal
+#import ../terminal
 
 type
   Stream* = object
     text*: string
     x*, y*, width*, height*: int
+    linespace: int
 
 proc split_paren(S: string): seq[string] =
   if S == "":
     return
   result = @[]
   var empty = true
-  for a in S.split("("):
-    if a == "":
-      empty = false
-      continue
-    if result == @[]:
-      if empty:
-        result &= a.split(" ")
+  if "(" in S:
+    var lst: seq[string] = @[]
+    var prelst = S.split("(")
+    var lol = ""
+    for i in prelst:
+      if lol == "":
+        lol &= i
+      elif lol[^1] == '\\':
+        lol &= i
       else:
-        result &= a.split(")")[0]
-        result &= a.split(")")[^1].split(" ")
-    elif result[^1][^1] != '\\':
-      result &= a.split(")")[0]
-      result &= a.split(")")[^1].split(" ")
-    else:
-      result &= "(" & a.split(" ")
-    while result[^1] == "":
-      if result == @[]:
-        break
-      result = result[0..^2]
-    empty = false
+        lol &= i
+        lst &= lol
+        lol = ""
+    lst &= lol
+    for a in lst:
+      #if a == "":
+      #  empty = false
+      #  continue
+      #if result == @[]:
+      #if empty:
+      #  result &= a
+      #else:
+      var lst = a.split("\\)")
+      var lol = ""
+      for i in lst:
+        if ") " in i:
+          lol &= i.split(") ")[0]
+          result &= lol
+          lol = ""
+          lol &= i.split(") ")[^1]
+        else:
+          lol &= i
+        lol &= "\\)"
+      lol = lol[0..^3]
+      result &= lol
+      #elif result[^1][^1] != '\\':
+      #  var lst = a.split("\\)")
+      #  var lol = ""
+      #  for i in lst:
+      #    if ") " in i:
+      #      lol &= i.split(") ")[0]
+      #      result &= lol
+      #      lol = ""
+      #      lol &= i.split(") ")[^1]
+      #    else:
+      #      lol &= i
+      #    lol &= "\\)"
+      #  lol = lol[0..^3]
+      #  result &= lol
+      #  #result &= a.split(")")[0]
+      #  #result &= a.split(")")[^1].split(" ")
+      #else:
+      #  result &= "(" & a.split(")")[0]
+      #  if ")" in a:
+      #    result &= a.split(")")[^1]
+      while result[^1] == "":
+        if result == @[]:
+          break
+        result = result[0..^2]
+      empty = false
+  else:
+    result = S.split(" ")
   while "" in result:
     for i in 0..high(result):
       if result[i] == "":
@@ -115,24 +157,25 @@ proc CleanStream(S: Stream): Stream =
       discard
     if y + lineheight > height:
       height = y + lineheight
-  result.height = height.int - result.y
+  if font_size == "":
+    font_size = "0"
+  result.linespace = lineheight.int
+  result.y -= (lineheight.int - font_size.parse_float().int)
+  result.height = height.int - (result.y)
   result.width = width.int - result.x
 
 proc `&`*(A, B: Stream): Stream {.gcsafe.}
 
-proc highlightStream*(St: Stream, R, G, B: float): Stream =
+proc highlightStream*(St: Stream, R, G, B: float): array[0..1, Stream] =
   var S = St.CleanStream()
-  result.text &= &"ET\n"
-  result.text &= &"{R} {G} {B} RG\n"
-  result.text &= &"{R} {G} {B} rg\n"
-  result.text &= &"{S.x} {S.y - S.height} {S.width} {S.height} re\n"
-  result.text &= &"f\n"
-  result.text &= &"0 0 0 RG\n"
-  result.text &= &"0 0 0 rg\n"
-  result.text &= &"BT\n"
-  #result.text &= &"{-S.width} {-S.height} Td\n"
-  result = result & S
-  return(CleanStream(result))
+  var rect = Stream()
+  rect.text &= &"{R} {G} {B} RG\n"
+  rect.text &= &"{R} {G} {B} rg\n"
+  rect.text &= &"{S.x} {S.y} {S.width} {S.height} re\n"
+  rect.text &= &"f\n"
+  rect.text &= &"0 0 0 RG\n"
+  rect.text &= &"0 0 0 rg\n"
+  return([CleanStream(rect), S])
 
 proc CreateTextStream*(x, y: int, size, linespacing: float, font, font_face: string, width: int, newline: bool, text: string, align: int = 1): Stream =
   result.text &= &"/{font} {size} Tf\n"
@@ -250,21 +293,7 @@ proc `&`*(A, B: Stream): Stream =
   return(CleanStream(result))
 
 proc `$`*(A: Stream): string =
-  when DEBUG:
-    return "BT\n" & &"%W: {A.width}\n%H: {A.height}\n" & A.text & "ET"
-  else:
-    return "BT\n" & A.text & "ET"
-
-when is_main_module:
-  var ast = CreateTextStream(5, 5, 12, 2.4, "F1", "times.ttf", 100, false, "lol nope hi hello world sup this is a paragraph lol nope hi hello world sup this is a paragraph")
-  var bst = CreateTextStream(5 + 14, 0, 12, 2.4, "F1", "times.ttf", 20, false, "nope")
-  var cst = CreateLineStream(5, 5, 50, 50)
-  var dst = (ast & bst & cst)
-  echo dst.trim(25)[0].text
-  echo dst.trim(25)[0]
-  echo dst.trim(25)[1].text
-  echo dst.trim(25)[1]
-  echo dst.text
-  echo dst
-  echo ast.moveto(10, 10, 12, 2.4)
-  
+  #when DEBUG:
+  #  return "BT\n" & &"%W: {A.width}\n%H: {A.height}\n" & A.text & "ET"
+  #else:
+  return "BT\n" & A.text & "ET"

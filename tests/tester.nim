@@ -1,11 +1,11 @@
 import osproc, unittest, strutils, os, sequtils, sugar
-import ../src/parser
+import ../src/[parser,lexer,nodes,tokenclass]
 
 var rootDir = getCurrentDir().parentDir()
 var markupPath = rootDir / "src" / addFileExt("markup", ExeExt)
-const path = "../src/markup"
+var path = rootDir / "src"
 
-var (output, exitCode) = execCmdEx("nim c " & path)
+var (output, exitCode) = execCmdEx("nim c " &  markupPath)
 echo output
 doAssert exitCode == QuitSuccess
 
@@ -32,8 +32,12 @@ proc inLines(lines: seq[string], line: string): bool =
 
 suite "code style":
   test "only terminal.nim echos":
-    var (output, exitCode) = execCmdEx("grep echo " & markupPath & " -R --exclude terminal.nim --exclude markup")
-    assert output.strip() == ""
+    var (output, exitCode) = execCmdEx("grep echo " & path & " -R")
+    for line in output.strip().split("\n"):
+      echo line
+      assert "terminal.nim:" in line or
+        "Binary" in line or
+        line.strip() == ""
 
 suite "cli":
   test "compile_error_nofiles":
@@ -124,23 +128,34 @@ suite "lexer":
 
 suite "parser":
   test "textComment":
-    var (output, exitCode) = execMarkup("-t","parser/comment.mu")
-    check exitCode == QuitSuccess
-    let lines = output.strip().split("\n")
-    check(inLines(lines, "    <TextComment: this is a comment !!!>"))
-    check(inLines(lines, "    <TextComment: Include nothing>"))
+    var text = "!this is a comment !!!\n!Include nothing\n"
+    var lex = initLexer(text, "comments")
+    var toks = lex.runLexer()
+    var psr = initParser(toks, -1)
+    var ast = psr.runParser()
+    var expected = Node(kind: nkBody, Contains: @[
+      Node(kind: nkTextSec, Contains: @[
+        Node(kind: nkTextComment, text: "this is a comment !!!"),
+        Node(kind: nkTextComment, text: "Include nothing"),
+        Node(kind: nkTextParEnd)
+      ])
+    ])
+    check($ast == $expected)
 
-  test "textList":
-    var (output, exitCode) = execMarkup("-t","parser/list.mu")
-    check exitCode == QuitSuccess
-    let lines = output.strip().split("\n")
-    check(inLines(lines, "      <List Level 1:  one>"))
-    check(inLines(lines, "      <List Level 2:  two>"))
-    check(inLines(lines, "      <List Level 3:  three>"))
-    check(inLines(lines, "      <List Level 1:  four>"))
-    check(inLines(lines, "      <List Level 2:  five>"))
-    check(inLines(lines, "      <List Level 1:  six>"))
-    check(inLines(lines, "      <List Level 3:  seven>"))
+  #test "textList":
+  #  var text = "\n- one\n  - two\n    - three\n- four\n  - five\n- six\n      - seven\n"
+  #  var lex = initLexer(text, "list")
+  #  var toks = lex.runLexer()
+  #  var psr = initParser(toks, -1)
+  #  var ast = psr.runParser()
+  #  var expected = Node(kind: nkBody, Contains: @[
+  #    Node(kind: nkTextSec, Contains: @[
+  #      Node(kind: nkTextComment, text: "this is a comment !!!"),
+  #      Node(kind: nkTextComment, text: "Include nothing"),
+  #      Node(kind: nkTextParEnd)
+  #    ])
+  #  ])
+  #  check($ast == $expected)
 
   test "equ":
     var (output, exitCode) = execMarkup("-t","parser/equation.mu")

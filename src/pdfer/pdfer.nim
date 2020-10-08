@@ -264,7 +264,7 @@ proc add_equation*(file: var pdf_file, text: string) =
     file.page_objs[^1].append("/Contents", equation_pdf_obj.obj)
 
 
-proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1, bold: bool = false, bg, fg: color = color(r: 0, g: 0, b: 0)) =
+proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1, bold: bool = false, bg, fg: color = color(r: 1, g: 1, b: 1)) =
   var text_obj = initTextObject()
   var column_size = ((file.media_box[0].toFloat-200.0) - (file.column_spacing * (file.columns.toFloat - 1.0))) / file.columns.toFloat
   var col_x = ((column_size + file.column_spacing) * (file.current_column.toFloat - 1.0)) + 100 
@@ -278,7 +278,12 @@ proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1, bo
     offset = (column_size - streams[0].width.float) / 2
   else:
     offset = 0
-  text_obj.append_text($streams[0].moveto(col_x + offset, file.y, size, file.line_spacing).highlightStream(bg.r, bg.g, bg.b))
+  if bg != color(r: 1, g: 1, b: 1):
+    text_obj.append_text($streams[0].moveto(col_x + offset, file.y, size, file.line_spacing).highlightStream(bg.r, bg.g, bg.b)[0])
+    file.text_objs.add(text_obj)
+    file.page_objs[^1].append("/Contents", text_obj)
+    text_obj = initTextObject()
+  text_obj.append_text($streams[0].moveto(col_x + offset, file.y, size, file.line_spacing))
   file.text_objs.add(text_obj)
   file.page_objs[^1].append("/Contents", text_obj)
   text_obj = initTextObject()
@@ -298,7 +303,7 @@ proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1, bo
       offset = column_size / 2 - streams[0].width.float / 2
     else:
       offset = 0
-    text_obj.append_text($streams[0].moveto(col_x + offset, file.y, size, file.line_spacing).highlightStream(bg.r, bg.g, bg.b))
+    text_obj.append_text($streams[0].moveto(col_x + offset, file.y, size, file.line_spacing))
     file.text_objs.add(text_obj)
     file.page_objs[^1].append("/Contents", text_obj)
     text_obj = initTextObject()

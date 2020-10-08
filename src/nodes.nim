@@ -147,7 +147,6 @@ proc `$`*(nod: Node): string =
     else:
       node_value = nod.prop.strip() & " = " & nod.value.strip()
   return ("<" & node_type & ": " & node_value & ">").replace("><", ">\n<")
-    
 
 # proc len*(list: SinglyLinkedList[Node]): int = 
 #   var i = 1

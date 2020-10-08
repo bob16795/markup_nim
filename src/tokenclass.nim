@@ -6,7 +6,8 @@ type
     ttype*, value*: string
     pos_start*, pos_end*: position
 
-proc initToken*(ttype: string, value: string, pos_start: position, pos_end: position): Token =
+proc initToken*(ttype: string, value: string, pos_start: position,
+    pos_end: position): Token =
   result.ttype = ttype
   result.value = value
 
@@ -19,7 +20,7 @@ proc len*(list: SinglyLinkedList[Token]): int =
     i += 1
   return i
 
-proc `[]`*(list: SinglyLinkedList[Token]; idx: int): Token = 
+proc `[]`*(list: SinglyLinkedList[Token]; idx: int): Token =
   var i = -1
   for j in list:
     i += 1
@@ -29,7 +30,7 @@ proc `[]`*(list: SinglyLinkedList[Token]; idx: int): Token =
 
 proc `$`*(tok: Token): string = $tok.ttype & ": " & $tok.value & $tok.pos_start
 
-proc `$`*(toks: seq[Token]): string = 
+proc `$`*(toks: seq[Token]): string =
   for tok in toks:
     result &= $tok & "\n"
 

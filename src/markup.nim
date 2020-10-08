@@ -10,9 +10,9 @@ var files: seq[string]
 
 var wrote: int
 
-proc thread_check(text, cwd: string, tree: int, prop: Table[string, string])  {.gcsafe.} 
+proc thread_check(text, cwd: string, tree: int, prop: Table[string, string]) {.gcsafe.}
 
-proc compile(file: string, prop: Table[string, string], wd: string, tree: int) = 
+proc compile(file: string, prop: Table[string, string], wd: string, tree: int) =
   log(file.split("/")[^1], "compiling")
   var cwd = wd
   var file_new = file
@@ -95,7 +95,7 @@ proc main() =
           for value in key.split(","):
             if value.split(":").len() == 2:
               var set = value.split(":")[0].strip()
-              var to  = value.split(":")[1].strip()
+              var to = value.split(":")[1].strip()
               prop[set] = to
             else:
               log("root", "invalid argument " & key & value)
