@@ -264,7 +264,7 @@ proc add_equation*(file: var pdf_file, text: string) =
     file.page_objs[^1].append("/Contents", equation_pdf_obj.obj)
 
 
-proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1, bold: bool = false, bg, fg: color = color(r: 1, g: 1, b: 1), link = "", ident = 0, just = true) =
+proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1, bold: bool = false, bg, fg: color = color(r: 1, g: 1, b: 1), link = "", ident = 1, just = true) =
   var text_obj = initTextObject()
   var column_size = ((file.media_box[0].toFloat-200.0) - (file.column_spacing * (file.columns.toFloat - 1.0))) / file.columns.toFloat
   var col_x = ((column_size + file.column_spacing) * (file.current_column.toFloat - 1.0)) + 100

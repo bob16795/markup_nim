@@ -293,7 +293,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
   of nkTextParEnd:
     if text != "\b" and text != "":
       if "prepend" in props:
-        text = props["prepend"].replace("[]", "()").repl_props(props) & text
+        text = props["prepend"].replace("||", "()").repl_props(props) & text
       for counter, by in ctx.counters:
         try:
           props[counter] = $(props[counter].parseInt() + by)

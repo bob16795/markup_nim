@@ -2,7 +2,7 @@ import parseopt, tables, os, re
 import strutils
 import lexer, parser, nodes, tokenclass
 import interpreter, threadpool, terminal
-{.experimental: "parallel".}
+#{.experimental: "parallel".}
 
 var p = initOptParser()
 
@@ -35,9 +35,12 @@ proc compile(file: string, prop: Table[string, string], wd: string, tree: int) =
       output(output.file, output_file, cwd)
       wrote += 1
     if use != "":
-      parallel:
+      if ";" in use:
+        #parallel:
         for text in use.split(";"):
-          spawn thread_check(text, cwd, tree, prop)
+          spawnX thread_check(text, cwd, tree, prop)
+      else:
+        thread_check(use, cwd, tree, prop)
   of 1:
     output($ast, "", cwd)
   of 2:
@@ -65,12 +68,14 @@ proc thread_check(text, cwd: string, tree: int, prop: Table[string, string]) {.g
     var file_name = file_full.split("/")[^1]
     if match(file_name, re(pattern)):
       file_list &= file_full
-  parallel:
+  if file_list.len == 1:
+    compile(file_list[0], prop, path, tree)
+  else:
+    #parallel:
     for file_name in file_list:
-      spawn compile(file_name, prop, path, tree)
+      spawnX compile(file_name, prop, path, tree)
 
 proc main() =
-  setMaxPoolSize(4)
   var tree = 0
   var prev = ""
   var prop = initTable[string, string]()
@@ -116,8 +121,9 @@ proc main() =
   if files.len < 2:
     compile(files[0], prop, getCurrentDir(), tree)
   wrote = 0
-  parallel:
-    for file in files:
-      spawn compile(file, prop, getCurrentDir(), tree)
+  #parallel:
+  for file in files:
+    spawnX compile(file, prop, getCurrentDir(), tree)
+  sync()
   log("root", "DONE\n\nwrote " & $wrote & " files")
 main()

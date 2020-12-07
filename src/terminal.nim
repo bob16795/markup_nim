@@ -1,4 +1,9 @@
 import strformat, os, strutils
+import locks
+
+var L: Lock
+
+L.initLock()
 
 const DEBUG* = false
 
@@ -32,8 +37,11 @@ template debug*(file, message: string) =
     echo "[DBG] ", message, ": ", file
 
 template output*(text, file, cwd: string) =
+  acquire(L)
   if file == "":
     echo text
   else:
     log(file.split("/")[^1], "writing")
     writeFile(cwd & "/" & file, text)
+  release(L)
+  log(file, "Finished Writing")
