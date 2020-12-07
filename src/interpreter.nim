@@ -15,6 +15,9 @@ type
     counters*: Table[string, int]
     wd*: string
     tab*: table
+    align*: int
+    ident*: int
+    just*: bool
 
 proc initOutput(file: var pdf_file, props: var Table[string,
     string]): int_return =
@@ -25,10 +28,10 @@ proc initOutput(file: var pdf_file, props: var Table[string,
 proc set_prop(props: var Table[string, string], file: var pdf_file,
     prop: string, value: string, ctx: var context) =
   if value[0] == '+':
-    ctx.counters[prop] = value[1..^1].parseInt()
+    ctx.counters[prop] = value[1..^1].split(".")[0].parseInt()
     return
   if value[0] == '-':
-    ctx.counters[prop] = value[1..^1].parseInt()
+    ctx.counters[prop] = value[1..^1].split(".")[0].parseInt()
     return
   props[prop] = value
   case prop:
@@ -54,6 +57,8 @@ proc set_prop(props: var Table[string, string], file: var pdf_file,
     file.footer = value.strip().split(",")
   of "prepend":
     debug(props["file_name"], "prepend set to \"" & value.strip() & "\"")
+  of "LineSpacing":
+    file.line_spacing = value.parseFloat()
 
 proc `[]`(ctx: context, value: string): mac =
   for mac in ctx.macros:
@@ -72,6 +77,12 @@ proc repl_props(S: string, props: Table[string, string]): string =
     result = result.replace("()" & p & "()", q)
   result = result.replace(re"\(\)[^\(\)]*\(\)")
 
+proc repl_props_bracket(S: string, props: Table[string, string]): string =
+  result = S
+  for p, q in props:
+    result = result.replace("[]" & p & "[]", q)
+  result = result.replace(re"\[\][^\(\)]*\[\]")
+
 proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
     ctx: var context, text: var string) {.gcsafe.}
 
@@ -88,6 +99,7 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
   of "PRS":
     # <PRS: text>
     # parses text
+    value = value.repl_props_bracket(props)
     var lexer_obj = initLexer(value & "\n", props["file_name"] & " - PRS tag")
     var toks = runLexer(lexer_obj)
     var parser_obj = initParser(toks, -1)
@@ -107,10 +119,49 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     # <CPT: Name>
     # adds a chapter heading
     file.add_heading(value, -1)
+  of "LNK":
+    # <LNK: URL; TEXT?>
+    # adds a link
+    if ";" in value:
+      file.add_text(value.split(";")[1], 12, link = value.split(";")[0], align = ctx.align)
+    else:
+      file.add_text(value, 12, link = value, align = ctx.align)
   of "PRT":
     # <PRT: Name>
     # adds a part heading
     file.add_heading(value, -2)
+  of "CENTER":
+    # <CENTER>
+    # Centers text
+    ctx.align = 3
+  of "LEFT":
+    # <LEFT>
+    # aligns text to the left
+    ctx.align = 1
+  of "INDENT":
+    # <NINDENT>
+    # default indent mode
+    ctx.ident = 0
+  of "JUST":
+    # <NINDENT>
+    # default indent mode
+    ctx.just = true
+  of "UNJUST":
+    # <NINDENT>
+    # default indent mode
+    ctx.just = false
+  of "NINDENT":
+    # <NINDENT>
+    # disable indent mode
+    ctx.ident = 1
+  of "HANGING":
+    # <HANGING>
+    # hanging indent mode
+    ctx.ident = 2
+  of "RIGHT":
+    # <RIGHT>
+    # aligns text to the right
+    ctx.align = 2
   of "PAG":
     # <PAG>
     # adds a new page
@@ -123,7 +174,7 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     # <PAGH: num>
     # sets page height
     file.media_box[1] = value.strip().parseInt()
-  of "LIN":
+  of "LIN", "LINE":
     # <LIN: num> | <LIN: num, num, num, num>
     # adds a line
     var args = value.strip().split(",")
@@ -147,7 +198,7 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
   of "LINEBR":
     # <LINEBR>
     # adds a new line
-    file.add_text("", 12)
+    file.add_text("", 12, align=ctx.align, ident=ctx.ident, just=ctx.just)
   of "COLBR":
     # <COLBR>
     # starts a new column
@@ -171,6 +222,7 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
 
 proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
     ctx: var context, text: var string) {.gcsafe.} =
+  props.set_prop(file, "Y", $file.y, ctx)
   if node.kind == nkTag:
     visit_tag(node, file, props, ctx, text)
     return
@@ -247,7 +299,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
           props[counter] = $(props[counter].parseInt() + by)
         except:
           props[counter] = "0"
-      file.add_text(text, 12)
+      file.add_text(text, 12, align=ctx.align, ident=ctx.ident, just=ctx.just)
       text = ""
   of nkTextBold:
     if text != "\b":
@@ -282,7 +334,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
           props[counter] = $(props[counter].parseInt() + by)
         except:
           props[counter] = "0"
-      file.add_text(text, 12)
+      file.add_text(text, 12, align=ctx.align, ident=ctx.ident, just=ctx.just)
       text = ""
     if match(node.lang.strip(), re"^{.*}$"):
       var (lol, tmpname) = mkstemp()
@@ -326,6 +378,9 @@ proc visitBody*(node: Node, file_name: string, wd: string, prop_pre: Table[
     props[k] = v
   text = ""
   var ctx: context
+  ctx.align = 1
+  ctx.ident = 0
+  ctx.just = true
   for node in node.Contains:
     ctx.wd = wd
     visit(node, file, props, ctx, text)

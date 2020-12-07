@@ -70,6 +70,7 @@ proc thread_check(text, cwd: string, tree: int, prop: Table[string, string]) {.g
       spawn compile(file_name, prop, path, tree)
 
 proc main() =
+  setMaxPoolSize(4)
   var tree = 0
   var prev = ""
   var prop = initTable[string, string]()
@@ -91,6 +92,8 @@ proc main() =
         files.add(key)
       else:
         case prev:
+        of "c":
+          setMaxPoolSize(key.parseInt())
         of "p", "prop":
           for value in key.split(","):
             if value.split(":").len() == 2:
@@ -110,6 +113,8 @@ proc main() =
       help(2)
   if files.len < 1:
     help(1)
+  if files.len < 2:
+    compile(files[0], prop, getCurrentDir(), tree)
   wrote = 0
   parallel:
     for file in files:

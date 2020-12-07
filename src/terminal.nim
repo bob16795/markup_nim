@@ -18,6 +18,7 @@ proc help*(msg: int, app_name: string = "markup") =
     echo "-t,\t--tree\tporints the ast and exits."
     echo "-k,\t--token-tree\tpoints the tokens and exits."
     echo "-I,\t--no-use\tdisables the use prop"
+    echo "-c,\t--cap\tcaps the cpu processed"
     echo ""
   else:
     discard

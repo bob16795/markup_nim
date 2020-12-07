@@ -1,8 +1,10 @@
 import md5, tables, strutils, strformat, ../terminal
+import streams
 
 type
   pdf_object* = object of RootObj
     otype*: string
+    stype*: string
     dict*: Table[string, seq[string]]
     stream*: string
     str*: string
@@ -11,9 +13,12 @@ proc ident*(obj: pdf_object): string
 
 proc `$`*(obj: pdf_object): string =
   if obj.dict != initTable[string, seq[string]]():
-    result = "<<\n/Type /" & obj.otype & "\n"
+    if obj.otype == "":
+      result = "<<\n/Subtype /" & obj.stype & "\n"
+    else:
+      result = "<<\n/Type /" & obj.otype & "\n"
     for key, value in obj.dict:
-      if len(value) >= 2:
+      if len(value) >= 2 or key == "/Annots":
         result &= key & " [" & value.join(" ") & "]" & "\n"
       elif len(value) == 1:
         if key != "/Kids":
@@ -60,12 +65,32 @@ proc initPagesObject*(): pdf_object =
 proc initPageObject*(): pdf_object =
   result.otype = "Page"
   result.dict["/Contents"] = newSeq[string]()
+  result.dict["/Annots"] = newSeq[string]()
 
 proc initTextObject*(): pdf_object =
   result.stream = ""
 
 proc initStringObject*(text: string): pdf_object =
   result.str = text
+
+# proc initLinkObject*(x, y: array[0..1, float], uri: string): pdf_object =
+#   result.append("/Subtype", initStringObject("/Link"))
+#   result.append("/Rect", initStringObject(&"[{x[0]} {y[0]} {x[1]} {y[1]}]"))
+#   result.append("/BS", initStringObject("<</W 0>>"))
+#   result.append("/F", initStringObject("4"))
+#   result.append("/A", initStringObject(&"<</Type/Action/S/URI/URI({uri}) >>"))
+#   result.append("/StructParent", initStringObject("0"))
+
+proc initLinkObject*(obj: pdf_object, uri: string): pdf_object =
+  var S: Stream
+  S.text = obj.stream
+  S = S.CleanStream()
+  result.stype = "Link"
+  result.append("/Rect", initStringObject(&"[{S.x} {S.y} {S.width + S.x} {S.y + S.height}]"))
+  result.append("/BS", initStringObject("<</W 0>>"))
+  result.append("/F", initStringObject("4"))
+  result.append("/A", initStringObject(&"<</Type/Action/S/URI/URI({uri}) >>"))
+  result.append("/StructParent", initStringObject("0"))
 
 proc initLineObject*(width: float, x, y: array[0..1, float]): pdf_object =
   result.stream = ""

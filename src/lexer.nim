@@ -116,6 +116,8 @@ proc runLexer*(lex: var lexer): seq[Token] =
             break
         else:
           break
+      if lex.c_char == '\\':
+        advanceLexer(lex)
     else:
       if lex.c_char in DIGITS:
         tokens.add(constructNumToken(lex))

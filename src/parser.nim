@@ -410,6 +410,97 @@ proc alphaNumSymLineParser(psr: var parser): Node =
     return Node(kind: nkNone)
   return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
 
+proc alphaNumSymPropParser(psr: var parser): Node =
+  var text = ""
+  var found = true
+  var start_pos = psr.c_tok.pos_start
+  while found:
+    found = false
+    case psr.c_tok.ttype:
+    of "tt_equals":
+      found = true
+      text = text & "="
+      psr.advance()
+    of "tt_lparen":
+      found = true
+      text = text & "("
+      psr.advance()
+    of "tt_rparen":
+      found = true
+      text = text & ")"
+      psr.advance()
+    of "tt_lbrace":
+      found = true
+      text = text & "{"
+      psr.advance()
+    of "tt_rbrace":
+      found = true
+      text = text & "}"
+      psr.advance()
+    of "tt_underscore":
+      found = true
+      text = text & "_"
+      psr.advance()
+    of "tt_plus":
+      found = true
+      text = text & "+"
+      psr.advance()
+    of "tt_colon":
+      found = true
+      text = text & ":"
+      psr.advance()
+    of "tt_ltag":
+      found = true
+      text = text & "<"
+      psr.advance()
+    of "tt_rtag":
+      found = true
+      text = text & ">"
+      psr.advance()
+    of "tt_ident":
+      found = true
+      text = text & "  "
+      psr.advance()
+    of "tt_exclaim":
+      found = true
+      text = text & "!"
+      psr.advance()
+    of "tt_text":
+      found = true
+      text = text & psr.c_tok.value
+      psr.advance()
+    of "tt_num":
+      found = true
+      text = text & psr.c_tok.value
+      psr.advance()
+    of "tt_star":
+      found = true
+      text = text & "*"
+      psr.advance()
+    of "tt_backtick":
+      found = true
+      text = text & "`"
+      psr.advance()
+    of "tt_dollar":
+      found = true
+      text = text & "$"
+      psr.advance()
+    of "tt_hash":
+      found = true
+      text = text & "#"
+      psr.advance()
+    of "tt_minus":
+      found = true
+      text = text & "-"
+      psr.advance()
+    of "tt_newline":
+      found = true
+      text = text & "\n"
+      psr.advance()
+  if text == "":
+    return Node(kind: nkNone)
+  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
+
 proc alphaNumSymMoreParser(psr: var parser): Node =
   var text = ""
   var found = true
@@ -490,7 +581,7 @@ parse_method codeblock >> nkCodeBlock:
   CODEBLOCK := '```' TEXT? '\n' CODE  '```\n'
   """
   var n: Node
-  advance()
+  #advance()
   badifnot("tt_backtick")
   badifnot("tt_backtick")
   badifnot("tt_backtick")
@@ -655,7 +746,7 @@ parse_method propLine >> nkPropLine:
     badifnot("tt_colon")
     if psr.c_tok.ttype == "tt_scolon":
       advance()
-      n = psr.alphaNumSymLineParser()
+      n = psr.alphaNumSymPropParser()
       badifnot("tt_scolon")
     else:
       n = psr.alphaNumSymMoreParser()
@@ -667,7 +758,7 @@ parse_method propLine >> nkPropLine:
     badifnot("tt_colon")
     if psr.c_tok.ttype == "tt_scolon":
       advance()
-      n = psr.alphaNumSymLineParser()
+      n = psr.alphaNumSymPropParser()
       badifnot("tt_scolon")
     else:
       n = psr.alphaNumSymMoreParser()

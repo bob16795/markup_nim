@@ -44,7 +44,7 @@ proc make_toc*(file: var pdf_file, offset: int): pdf_file {.gcsafe.}
 proc make_title(file: var pdf_file) {.gcsafe.}
 proc init_pdf_file*(): pdf_file {.gcsafe.}
 
-proc get_pdf_objs(tab: var table): seq[pdf_object] =
+proc get_pdf_objs(tab: var table, line_spacing: float): seq[pdf_object] =
   var line_y = 0.0
   for row in tab.data:
     var max_row_y = 0.0
@@ -57,7 +57,7 @@ proc get_pdf_objs(tab: var table): seq[pdf_object] =
       except:
         cell_x = tab.offset[0]
       var text_obj = initTextObject()
-      text_obj.append_text(&"BT\n{12 + 2.4} TL\n/F1 {12} Tf\n{cell_x + 1} {tab.offset[1] + 3.4 - line_y} Td\n")
+      text_obj.append_text(&"BT\n{12 + line_spacing} TL\n/F1 {12} Tf\n{cell_x + 1} {tab.offset[1] + 3.4 - line_y} Td\n")
       var line = ""
       var line_y_temp = 0.0
       var size: float
@@ -74,7 +74,7 @@ proc get_pdf_objs(tab: var table): seq[pdf_object] =
       if line != "":
         text = line[0..^2]
         text_obj.append_text(&"0 0 ({text}) \"\n%LOL\n")
-        line_y_temp += 12 + 2.4
+        line_y_temp += 12 + line_spacing
         text_obj.append_text("ET\n")
         result.add(text_obj)
       if line_y_temp > max_row_y:
@@ -92,7 +92,7 @@ proc get_pdf_objs(tab: var table): seq[pdf_object] =
   tab.height = line_y + 12
 
 proc add_table*(file: var pdf_file, tab: var table) =
-  discard tab.get_pdf_objs()
+  discard tab.get_pdf_objs(file.line_spacing)
   file.y -= tab.height
   if file.y < 100:
       if file.current_column >= file.columns:
@@ -106,8 +106,8 @@ proc add_table*(file: var pdf_file, tab: var table) =
   var col_x = ((column_size + file.column_spacing).toInt() * (file.current_column - 1)) + 100 
   tab.offset[0] = col_x.toFloat()
   file.y -= tab.height - 12.0
-  file.text_objs.add(tab.get_pdf_objs())
-  for obj in tab.get_pdf_objs():
+  file.text_objs.add(tab.get_pdf_objs(file.line_spacing))
+  for obj in tab.get_pdf_objs(file.line_spacing):
     file.page_objs[^1].append("/Contents", obj)
 
 proc append*(tab: var table, row: seq[string]) =
@@ -264,28 +264,39 @@ proc add_equation*(file: var pdf_file, text: string) =
     file.page_objs[^1].append("/Contents", equation_pdf_obj.obj)
 
 
-proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1, bold: bool = false, bg, fg: color = color(r: 1, g: 1, b: 1)) =
+proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1, bold: bool = false, bg, fg: color = color(r: 1, g: 1, b: 1), link = "", ident = 0, just = true) =
   var text_obj = initTextObject()
   var column_size = ((file.media_box[0].toFloat-200.0) - (file.column_spacing * (file.columns.toFloat - 1.0))) / file.columns.toFloat
-  var col_x = ((column_size + file.column_spacing) * (file.current_column.toFloat - 1.0)) + 100 
-  var stream = CreateTextStream(col_x.int, (file.y - size - file.line_spacing).int, size, file.line_spacing, "F1", file.font_face, column_size.int, false, text, align)
+  var col_x = ((column_size + file.column_spacing) * (file.current_column.toFloat - 1.0)) + 100
+  var stream = CreateTextStream(col_x.int, (file.y - size - file.line_spacing).int, size, file.line_spacing, "F1", file.font_face, column_size.int, false, text, align, ident, just)
   var streams = stream.trim(file.y.int - 100)
   var offset: float
-  case align:
-  of 2:
-    offset = column_size - streams[0].width.float
-  of 3:
-    offset = (column_size - streams[0].width.float) / 2
+  if just:
+    case align:
+    of 2:
+      offset = column_size - streams[0].width.float
+    of 3:
+      offset = (column_size - streams[0].width.float) / 2
+    else:
+      offset = 0
   else:
     offset = 0
   if bg != color(r: 1, g: 1, b: 1):
     text_obj.append_text($streams[0].moveto(col_x + offset, file.y, size, file.line_spacing).highlightStream(bg.r, bg.g, bg.b)[0])
     file.text_objs.add(text_obj)
     file.page_objs[^1].append("/Contents", text_obj)
+    if link != "":
+      var link_obj = initLinkObject(text_obj, link)
+      file.text_objs.add(link_obj)
+      file.page_objs[^1].append("/Annots", link_obj)
     text_obj = initTextObject()
   text_obj.append_text($streams[0].moveto(col_x + offset, file.y, size, file.line_spacing))
   file.text_objs.add(text_obj)
   file.page_objs[^1].append("/Contents", text_obj)
+  if link != "":
+    var link_obj = initLinkObject(text_obj, link)
+    file.text_objs.add(link_obj)
+    file.page_objs[^1].append("/Annots", link_obj)
   text_obj = initTextObject()
   var overflow = streams[1]
   while overflow != Stream():
@@ -296,16 +307,23 @@ proc add_text*(file: var pdf_file, text: string, size: float, align: int = 1, bo
       file.y = file.y_start
     streams = overflow.trim(file.y.int - 100)
     col_x = ((column_size + file.column_spacing) * (file.current_column.toFloat - 1.0)) + 100 
-    case align:
-    of 2:
-      offset = column_size - streams[0].width.float
-    of 3:
-      offset = column_size / 2 - streams[0].width.float / 2
+    if just:
+      case align:
+      of 2:
+        offset = column_size - streams[0].width.float
+      of 3:
+        offset = column_size / 2 - streams[0].width.float / 2
+      else:
+        offset = 0
     else:
       offset = 0
     text_obj.append_text($streams[0].moveto(col_x + offset, file.y, size, file.line_spacing))
     file.text_objs.add(text_obj)
     file.page_objs[^1].append("/Contents", text_obj)
+    if link != "":
+      var link_obj = initLinkObject(text_obj, link)
+      file.text_objs.add(link_obj)
+      file.page_objs[^1].append("/Annots", link_obj)
     text_obj = initTextObject()
     overflow = streams[1]
   file.y -= streams[0].height.float
