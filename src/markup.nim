@@ -1,8 +1,7 @@
 import parseopt, tables, os, re
-import strutils
+import strutils, output
 import lexer, parser, nodes, tokenclass
 import interpreter, threadpool, terminal
-#{.experimental: "parallel".}
 
 var p = initOptParser()
 
@@ -36,7 +35,6 @@ proc compile(file: string, prop: Table[string, string], wd: string, tree: int) =
       wrote += 1
     if use != "":
       if ";" in use:
-        #parallel:
         for text in use.split(";"):
           spawnX thread_check(text, cwd, tree, prop)
       else:
@@ -97,8 +95,14 @@ proc main() =
         files.add(key)
       else:
         case prev:
-        of "c":
-          setMaxPoolSize(key.parseInt())
+        of "c", "cap":
+          try:
+            if key.parseInt() <= 256:
+              setMaxPoolSize(key.parseInt())
+            else:
+              badArgError("Range for cap is 0-255")
+          except:
+            badArgError("Cap must be a number")
         of "p", "prop":
           for value in key.split(","):
             if value.split(":").len() == 2:

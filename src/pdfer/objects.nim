@@ -1,4 +1,4 @@
-import md5, tables, strutils, strformat, ../terminal
+import md5, tables, strutils, strformat, ../output
 import streams
 
 type

@@ -3,12 +3,11 @@ import strutils, segfaults, tables
 
 var faces {.threadvar.}: Table[cint, ttf.FontPtr]
 
-const page_sizes = @[
+const page_sizes = @[ # this is in mm
 ("A4", [210, 297]),
 ("A5", [148, 210]),
 ("Letter", [216, 279])
 ].toTable()
-
 
 proc `*`(A: array[0..1, int], B: float): array[0..1, int] =
   result[0] = (A[0].toFloat() * B).toInt()

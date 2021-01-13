@@ -1,4 +1,57 @@
-import strutils, terminal
+import terminal
+import strformat, os, strutils
+import locks
+var L: Lock
+
+L.initLock()
+
+const DEBUG* = false
+
+proc help*(msg: int, app_name: string = "markup") =
+  echo &"Usage: {app_name} [OPTIONS] FILES..."
+  case msg:
+  of 1:
+    echo &"Try \"{app_name} --help\" for help."
+    echo &""
+    echo &"Error: Missing argument \"FILES...\"."
+  of 2:
+    echo ""
+    echo "Options:"
+    echo ""
+    echo "-h,\t--help\tShow this message and exit."
+    echo "-p,\t--prop\tPrepend properties to document."
+    echo "-t,\t--tree\tporints the ast and exits."
+    echo "-k,\t--token-tree\tpoints the tokens and exits."
+    echo "-I,\t--no-use\tdisables the use prop"
+    echo "-c,\t--cap\tcaps the cpu processed"
+    echo ""
+  else:
+    discard
+  quit()
+
+template log*(file, message: string, color: ForegroundColor = fgDefault) =
+  for line in message.split("\n"):
+    if line == "":
+      continue
+    if file != "":
+      styledWrite(stdout, resetStyle, file, ": ", color, line, "\n")
+    else:
+      styledWrite(stdout, resetStyle, color, line, "\n")
+    #echo file, ": ", message.replace("\n", "\n" & file & ": ")
+
+template debug*(file, message: string) =
+  when DEBUG:
+    echo "[DBG] ", message, ": ", file
+
+template output*(text, file, cwd: string) =
+  acquire(L)
+  if file == "":
+    echo text
+  else:
+    log(file.split("/")[^1], "writing")
+    writeFile(cwd & "/" & file, text)
+  release(L)
+  log(file, "Finished Writing")
 
 type
   OutputMethod* = object of RootObj
@@ -16,11 +69,13 @@ type
     fn*, ftxt: string
 
 proc reversed(s: string): string =
+  # reverses a string
   result = newString(s.len)
   for i,c in s:
     result[s.high - i] = c
 
 proc string_with_arrows(text: string, pos_start: position, pos_end: position): string =
+  # adds formatting to an error string
   result = ""
   try:
     # indexes
@@ -58,9 +113,12 @@ proc string_with_arrows(text: string, pos_start: position, pos_end: position): s
     return ""
 
 proc `$`(obj: ErrorMethod): string =
-  result =          obj.error_name & ": " & obj.details & "\n"
-  result = result & "File <" & obj.pos_start.fn & ">, Line " & $(obj.pos_start.ln + 1)
-  result = result & "\n\n" & string_with_arrows(obj.pos_start.ftxt, obj.pos_start, obj.pos_end) & "\n"
+  # formats a error into text
+  # ex:
+  # :
+  result =  obj.error_name & ": " & obj.details & "\n"
+  result &= "File <" & obj.pos_start.fn & ">, Line " & $(obj.pos_start.ln + 1)
+  result &= "\n\n" & string_with_arrows(obj.pos_start.ftxt, obj.pos_start, obj.pos_end) & "\n"
 
 proc initError*(pos_start: position, pos_end: position, error_name: string, details: string) =
   var error: ErrorMethod
@@ -68,7 +126,12 @@ proc initError*(pos_start: position, pos_end: position, error_name: string, deta
   error.pos_end = pos_end
   error.error_name = error_name
   error.details = details
-  log(error.pos_start.fn, $error)
+  log(error.pos_start.fn, $error, fgRed)
+  quit()
+
+proc badArgError*(reason: string) =
+  log("", "Error: Bad Argument\n", fgRed)
+  log("", reason)
   quit()
 
 proc initPos*(idx: int, ln: int, col: int, fn: string, ftxt: string): position =
