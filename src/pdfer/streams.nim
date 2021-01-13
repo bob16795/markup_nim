@@ -1,7 +1,6 @@
 import strformat
 import strutils
 import lib, math
-#import ../terminal
 
 type
   Stream* = object
@@ -29,13 +28,6 @@ proc split_paren(S: string): seq[string] =
         lol = ""
     lst &= lol
     for a in lst:
-      #if a == "":
-      #  empty = false
-      #  continue
-      #if result == @[]:
-      #if empty:
-      #  result &= a
-      #else:
       var lst = a.split("\\)")
       var lol = ""
       for i in lst:
@@ -49,26 +41,6 @@ proc split_paren(S: string): seq[string] =
         lol &= "\\)"
       lol = lol[0..^3]
       result &= lol
-      #elif result[^1][^1] != '\\':
-      #  var lst = a.split("\\)")
-      #  var lol = ""
-      #  for i in lst:
-      #    if ") " in i:
-      #      lol &= i.split(") ")[0]
-      #      result &= lol
-      #      lol = ""
-      #      lol &= i.split(") ")[^1]
-      #    else:
-      #      lol &= i
-      #    lol &= "\\)"
-      #  lol = lol[0..^3]
-      #  result &= lol
-      #  #result &= a.split(")")[0]
-      #  #result &= a.split(")")[^1].split(" ")
-      #else:
-      #  result &= "(" & a.split(")")[0]
-      #  if ")" in a:
-      #    result &= a.split(")")[^1]
       while result[^1] == "":
         if result == @[]:
           break
@@ -180,7 +152,6 @@ proc highlightStream*(St: Stream, R, G, B: float): array[0..1, Stream] =
 proc CreateTextStream*(x, y: int, size, linespacing: float, font, font_face: string, width: int, newline: bool, text: string, align: int = 1, ident: int, just: bool): Stream =
   var wid = width
   result.text &= &"/{font} {size} Tf\n"
-  #result.text &= &"{x} {y.float - size - linespacing} Td\n"
   result.text &= &"{x} {y.float} Td\n"
   result.text &= &"{size + linespacing} TL\n"
   for line in text.split("\n"):
@@ -188,7 +159,7 @@ proc CreateTextStream*(x, y: int, size, linespacing: float, font, font_face: str
     var out_line = "("
     if ident == 0:
       wid = width - get_text_size("                ", size, font_face).int
-      result.text &= "([]IDENT[]) Tj\n"
+      result.text &= "({}IDENT{}) Tj\n"
     for word in line.split(" "):
       if word == "\\n":
         out_line &= " ) Tj\n"
@@ -222,7 +193,7 @@ proc CreateTextStream*(x, y: int, size, linespacing: float, font, font_face: str
         result.text &= &"{word_spacing} Tw\n{char_spacing} Tc\n{out_line}\nT*\n"
         if ident == 2:
           wid = width - get_text_size("                ", size, font_face).int
-          result.text &= "0 Tw\n0 Tc\n([]IDENT[]) Tj\n"
+          result.text &= "0 Tw\n0 Tc\n({}IDENT{}) Tj\n"
         else:
           wid = width
         out_line = &"({word.addbs()}"
@@ -246,9 +217,6 @@ proc moveTo*(A: Stream, x, y, size, lineheight: float): Stream =
   if not("Td" in A.text):
     text = &"0 0 Td\n" & A.text
   for line in text.split("\n"):
-    #if done:
-    #  result.text &= line & "\n"
-    #else:
     var commands = line.split_paren()
     if commands == @[]:
       continue
@@ -303,7 +271,4 @@ proc `&`*(A, B: Stream): Stream =
   return(CleanStream(result))
 
 proc `$`*(A: Stream): string =
-  #when DEBUG:
-  #  return "BT\n" & &"%W: {A.width}\n%H: {A.height}\n" & A.text & "ET"
-  #else:
-  return "BT\n" & A.text.replace("[]IDENT[]","                ") & "ET"
+  return "BT\n" & A.text.replace("{}IDENT{}","                ").replace("{}SPACE{}"," ") & "ET"

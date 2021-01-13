@@ -31,7 +31,7 @@ type
     nkNone,         # an empty node                 leaf
   Node* = object
     start_pos*, end_pos*: position
-    case kind*: NodeKind  # the ``kind`` field is the discriminator
+    case kind*: NodeKind
     of nkEquation, nkAlphaNumSym, nkTextComment, nkHeading1, nkHeading2, nkHeading3, nkListLevel1, nkListLevel2, nkListLevel3, nkTextBold, nkTextEmph:
       text*: string
     of nkBody, nkPropSec, nkTextSec, nkList, nkTextLine:
@@ -147,17 +147,3 @@ proc `$`*(nod: Node): string =
     else:
       node_value = nod.prop.strip() & " = " & nod.value.strip()
   return ("<" & node_type & ": " & node_value & ">").replace("><", ">\n<")
-
-# proc len*(list: SinglyLinkedList[Node]): int = 
-#   var i = 1
-#   for j in list:
-#     i += 1
-#   return i
-
-# proc `[]`*(list: SinglyLinkedList[Node]; idx: int): Node= 
-#   var i = -1
-#   for j in list:
-#     i += 1
-#     if i == idx:
-#       return j
-#   return

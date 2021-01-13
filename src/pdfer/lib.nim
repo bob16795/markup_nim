@@ -3,6 +3,24 @@ import strutils, segfaults, tables
 
 var faces {.threadvar.}: Table[cint, ttf.FontPtr]
 
+const page_sizes = @[
+("A4", [210, 297]),
+("A5", [148, 210]),
+("Letter", [216, 279])
+].toTable()
+
+
+proc `*`(A: array[0..1, int], B: float): array[0..1, int] =
+  result[0] = (A[0].toFloat() * B).toInt()
+  result[1] = (A[1].toFloat() * B).toInt()
+
+proc get_page_size*(name: string): array[0..1, int] =
+  if " " in name.strip():
+    return [name.strip().split(" ")[0].parseInt(), name.strip().split(" ")[1].parseInt()]
+  else:
+    if name.strip() in page_sizes:
+      return page_sizes[name] * (72/25.4)
+  return page_sizes["A4"] * (72/25.4)
 
 proc get_text_size*(text: cstring, size: float, font_file: string): float =
   if not(ttfWasInit()):
@@ -71,7 +89,6 @@ func addbs*(text: string): string =
     result = text.replace("\\", "\\\\")
     result = result.replace("(", "\\(")
     result = result.replace(")", "\\)").strip()
-    #result = result.replace("\x00")
 
 func removebs*(text: string): string =
     result = text.replace("\\\\", "\\")

@@ -17,7 +17,7 @@ proc initLexer*(text: string, fn: string): lexer =
   result.text = "\n" & text
   if text == "":
     result.text = "\n" & result.text
-  result.pos = initPos(-1, 0, -1, fn, text) 
+  result.pos = initPos(-1, 0, -1, fn, text)
   advanceLexer(result)
 
 proc constructTextToken(lex: var lexer): Token =
@@ -29,18 +29,7 @@ proc constructTextToken(lex: var lexer): Token =
     advanceLexer(lex)
   return initToken("tt_text", text_str, pos_start, lex.pos)
 
-proc constructNumToken(lex: var lexer): Token =
-  let DIGITS = "0123456789"
-  var text_str = ""
-  var pos_start = lex.pos
-  while lex.c_char != '\b' and lex.c_char in DIGITS & ".":
-    text_str = text_str & lex.c_char
-    advanceLexer(lex)
-  return initToken("tt_num", text_str, pos_start, lex.pos)
-
 proc runLexer*(lex: var lexer): seq[Token] =
-  #let DIGITS = "0123456789"
-  let DIGITS = ""
   var tokens = newSeq[Token]()
   while lex.c_char != '\b':
     case lex.c_char:
@@ -119,9 +108,6 @@ proc runLexer*(lex: var lexer): seq[Token] =
       if lex.c_char == '\\':
         advanceLexer(lex)
     else:
-      if lex.c_char in DIGITS:
-        tokens.add(constructNumToken(lex))
-      else:
-        tokens.add(constructTextToken(lex))
+      tokens.add(constructTextToken(lex))
   tokens.add(initToken("tt_newline", "", lex.pos, advancePos(lex.pos, lex.c_char)))
   return tokens[1..^1]

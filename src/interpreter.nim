@@ -59,6 +59,8 @@ proc set_prop(props: var Table[string, string], file: var pdf_file,
     debug(props["file_name"], "prepend set to \"" & value.strip() & "\"")
   of "LineSpacing":
     file.line_spacing = value.parseFloat()
+  of "geometry":
+    file.set_page_size(value.strip())
 
 proc `[]`(ctx: context, value: string): mac =
   for mac in ctx.macros:
@@ -96,6 +98,11 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     return
   var value = node.tag_value.repl_props(props).strip()
   case node.tag_name:
+  of "RAW":
+    # <RAW: text>
+    # adds text to line
+    value = value.repl_props_bracket(props)
+    text &= value
   of "PRS":
     # <PRS: text>
     # parses text
@@ -205,14 +212,17 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     file.next_col()
   of "IDX":
     # <IDX: entry1; entry2 ...>
+    # adds an index entry
     if value != "":
       file.add_index_entry(value)
   of "IF":
     # <IF: ()VAR()>
+    # if statement idk how to explain lol
     if value == "False":
       ctx.ignore += 1
   of "COL":
     # <COL: columns>
+    # set the number of columns
     try:
       file.set_cols(value.strip().parseInt())
     except:

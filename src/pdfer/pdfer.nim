@@ -230,7 +230,7 @@ proc finish*(file: var pdf_file) =
 proc `$`*(file: var pdf_file): string =
   file.finish()
   var objects_ordered = file.sequence()
-  result = "%PDF-1.2\n"
+  result = "%PDF-1.2\n%ÐÔÅØ\n"
   var footer = &"xref\n0 {len(objects_ordered) + 1}\n0000000000 65535 f\n"
   var end_file = &"trailer\n<< /Size {len(objects_ordered) - 1}\n/Root 1 0 R\n>>\nstartxref\n"
   for i, obj in (objects_ordered):
@@ -240,7 +240,6 @@ proc `$`*(file: var pdf_file): string =
     result = result.replace(&"{obj.ident()}", &"{i + 1} 0 R")
   end_file &= &"{len(result)}\n%%EOF"
   result &= footer & end_file
-  #lib_deinit()
 
 proc add_equation*(file: var pdf_file, text: string) =
   if file.y - (12 + file.line_spacing) < 100:
@@ -479,14 +478,21 @@ proc make_title(file: var pdf_file) =
   file.text_objs = concat(title_file.text_objs, file.text_objs)
   file.page_objs = concat(title_file.page_objs, file.page_objs)
 
+proc set_page_size*(file: var pdf_file, size: string) =
+  file.media_box = get_page_size(size)
+  if file.page_objs != @[]:
+    if file.page_objs[^1].dict["/Contents"] != @[]:
+      file.add_page()
+    else:
+      file.y = file.media_box[1].float - 100
+      file.y_start = file.y
+      var text_obj = initStringObject(&"[ 0 0 {file.mediabox[0]} {file.mediabox[1]} ]")
+      file.page_objs[^1].replace("/MediaBox", text_obj)
 
 proc init_pdf_file*(): pdf_file =
   result.catalog = initCatalogObject()
   result.pages = initpagesObject()
   result.outlines = initOutlinesObject()
-  #result.font_obj = initFontObject("/F1", "times.ttf")
-  #result.font_bold_obj = initFontObject("/F2", "timesbold.ttf", 1)
-  #result.font_emph_obj = initFontObject("/F3", "timesemph.ttf", 2)
   result.level = @[0, 0, 0]
   result.cpt = 0
   result.prt = 0
@@ -494,7 +500,7 @@ proc init_pdf_file*(): pdf_file =
   result.column_spacing = 20
   result.current_column = 1
   result.columns = 1
-  result.media_box = [612, 792]
+  result.set_page_size("A4")
   result.title = ""
   result.author = ""
   result.font_face = "times.ttf"

@@ -46,6 +46,9 @@ proc append*(obj: var pdf_object, key: string, child: pdf_object) =
   else:
     obj.dict[key] = @[child.ident()]
 
+proc replace*(obj: var pdf_object, key: string, child: pdf_object) =
+  obj.dict[key] = @[child.ident()]
+
 proc append_text*(obj: var pdf_object, text: string) =
   obj.stream &= text
 
@@ -72,14 +75,6 @@ proc initTextObject*(): pdf_object =
 
 proc initStringObject*(text: string): pdf_object =
   result.str = text
-
-# proc initLinkObject*(x, y: array[0..1, float], uri: string): pdf_object =
-#   result.append("/Subtype", initStringObject("/Link"))
-#   result.append("/Rect", initStringObject(&"[{x[0]} {y[0]} {x[1]} {y[1]}]"))
-#   result.append("/BS", initStringObject("<</W 0>>"))
-#   result.append("/F", initStringObject("4"))
-#   result.append("/A", initStringObject(&"<</Type/Action/S/URI/URI({uri}) >>"))
-#   result.append("/StructParent", initStringObject("0"))
 
 proc initLinkObject*(obj: pdf_object, uri: string): pdf_object =
   var S: Stream
@@ -111,12 +106,6 @@ proc parse_uint16(file: File): uint32 =
     return
   result = a[0].uint16 shl 8
   result += a[1].uint16 shl 0
-
-#proc parse_uint8(file: File): uint32 =
-#  var a: seq[uint8] = @[0.uint8]
-#  if 1 != file.readBytes(a, 0, 1):
-#    return
-#  result = a[0].uint16 shl 0
 
 proc parse_Tag(file: File): array[4, char] =
   var a: seq[uint8] = @[0.uint8, 0.uint8, 0.uint8, 0.uint8]
@@ -174,15 +163,17 @@ proc initFontFileObject*(file: string): pdf_object =
     result.stream = readFile(file)
 
 proc initFontDescObject*(file: string, bold: int): pdf_object =
-    #/StemV 105 
-    #/StemH 45 
-    #/CapHeight 660 
-    #/XHeight 394 
-    #/Ascent 720 
-    #/Descent −270 
-    #/Leading 83 
-    #/MaxWidth 1212 
-    #/AvgWidth 478 
+    discard """
+    /StemV 105 
+    /StemH 45 
+    /CapHeight 660 
+    /XHeight 394 
+    /Ascent 720 
+    /Descent −270 
+    /Leading 83 
+    /MaxWidth 1212 
+    /AvgWidth 478
+    """
     result.otype = "FontDescriptor"
     result.append("/FontName", initStringObject("/HelloWorld"))
     if bold == 0:
