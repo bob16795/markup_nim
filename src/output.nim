@@ -30,14 +30,11 @@ proc help*(msg: int, app_name: string = "markup") =
   quit()
 
 template log*(file, message: string, color: ForegroundColor = fgDefault) =
-  for line in message.split("\n"):
-    if line == "":
-      continue
+  for line in message.strip().split("\n"):
     if file != "":
       styledWrite(stdout, resetStyle, file, ": ", color, line, "\n")
     else:
       styledWrite(stdout, resetStyle, color, line, "\n")
-    #echo file, ": ", message.replace("\n", "\n" & file & ": ")
 
 template debug*(file, message: string) =
   when DEBUG:

@@ -581,7 +581,6 @@ parse_method codeblock >> nkCodeBlock:
   CODEBLOCK := '```' TEXT? '\n' CODE  '```\n'
   """
   var n: Node
-  #advance()
   badifnot("tt_backtick")
   badifnot("tt_backtick")
   badifnot("tt_backtick")
@@ -675,7 +674,6 @@ parse_method tableRow >> nkTableRow:
         error = false
   if texta == @[]:
     bad()
-  # badifnot("tt_bar")
   badifnot("tt_newline")
   Nrow_columns = texta
   Nend_pos = psr.c_tok.pos_start
@@ -971,13 +969,11 @@ parse_method textList >> nkList:
   test(listlevel2Parser, n)
   test(listlevel1Parser, n)
   while n.kind != nkNone:
-    # checkpoint()
     nodes.add(n)
     n = Node(kind: nkNone)
     test(listlevel3Parser, n)
     test(listlevel2Parser, n)
     test(listlevel1Parser, n)
-  # reset()
   if len(nodes) <= 1:
     bad()
   NContains = nodes

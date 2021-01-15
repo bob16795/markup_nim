@@ -6,12 +6,8 @@ type
   int_return* = object
     file*: string
     props*: Table[string, string]
-  mac* = object
-    name*: string
-    tags*: seq[array[0..1, string]]
   context* = object
     ignore*: int
-    macros*: seq[mac]
     counters*: Table[string, int]
     wd*: string
     tab*: table
@@ -21,6 +17,7 @@ type
 
 proc initOutput(file: var pdf_file, props: var Table[string,
     string]): int_return =
+  # inits an output variable
   result.file = $file
   result.props = props
 
@@ -61,17 +58,6 @@ proc set_prop(props: var Table[string, string], file: var pdf_file,
     file.line_spacing = value.parseFloat()
   of "geometry":
     file.set_page_size(value.strip())
-
-proc `[]`(ctx: context, value: string): mac =
-  for mac in ctx.macros:
-    if value == mac.name:
-      return mac
-
-proc `in`(value: string, ctx: context): bool =
-  for mac in ctx.macros:
-    if value == mac.name:
-      return true
-  return false
 
 proc repl_props(S: string, props: Table[string, string]): string =
   result = S
@@ -130,7 +116,8 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     # <LNK: URL; TEXT?>
     # adds a link
     if ";" in value:
-      file.add_text(value.split(";")[1], 12, link = value.split(";")[0], align = ctx.align)
+      file.add_text(value.split(";")[1], 12, link = value.split(";")[0],
+          align = ctx.align)
     else:
       file.add_text(value, 12, link = value, align = ctx.align)
   of "PRT":
@@ -192,7 +179,8 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
         file.add_vrule(10, 10)
     elif args.len == 4:
       try:
-        file.add_line(args[0].strip().parseFloat(), args[1].strip().parseFloat(), args[2].strip().parseFloat(), args[3].strip().parseFloat())
+        file.add_line(args[0].strip().parseFloat(), args[1].strip().parseFloat(),
+            args[2].strip().parseFloat(), args[3].strip().parseFloat())
       except:
         discard
   of "VBRK":
@@ -205,7 +193,7 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
   of "LINEBR":
     # <LINEBR>
     # adds a new line
-    file.add_text("", 12, align=ctx.align, ident=ctx.ident, just=ctx.just)
+    file.add_text("", 12, align = ctx.align, ident = ctx.ident, just = ctx.just)
   of "COLBR":
     # <COLBR>
     # starts a new column
@@ -309,7 +297,8 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
           props[counter] = $(props[counter].parseInt() + by)
         except:
           props[counter] = "0"
-      file.add_text(text, 12, align=ctx.align, ident=ctx.ident, just=ctx.just)
+      file.add_text(text, 12, align = ctx.align, ident = ctx.ident,
+          just = ctx.just)
       text = ""
   of nkTextBold:
     if text != "\b":
@@ -344,7 +333,8 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
           props[counter] = $(props[counter].parseInt() + by)
         except:
           props[counter] = "0"
-      file.add_text(text, 12, align=ctx.align, ident=ctx.ident, just=ctx.just)
+      file.add_text(text, 12, align = ctx.align, ident = ctx.ident,
+          just = ctx.just)
       text = ""
     if match(node.lang.strip(), re"^{.*}$"):
       var (lol, tmpname) = mkstemp()
@@ -352,7 +342,8 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
       var tmpfile = tmpname.open(fmWrite)
       tmpfile.write(node.code.repl_props(props))
       tmpfile.close()
-      let (outp, errc) = execCmdEx(node.lang.strip().strip(true, true, {'{', '}'}) & " " & tmpname)
+      let (outp, errc) = execCmdEx(node.lang.strip().strip(true, true, {'{',
+          '}'}) & " " & tmpname)
       discard execCmdEx("rm " & tmpname)
       if errc != 0:
         log("error while running code:\n" & outp, props["file_name"])

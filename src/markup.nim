@@ -12,6 +12,16 @@ var wrote: int
 proc thread_check(text, cwd: string, tree: int, prop: Table[string, string]) {.gcsafe.}
 
 proc compile(file: string, prop: Table[string, string], wd: string, tree: int) =
+  # compiles a file and sub files
+  # args
+  # file: the file to compile
+  # prop: props to start with
+  # wd: working directory
+  # tree: what to show
+  #   0: default compiles document and returns pdf
+  #   1: prints ast
+  #   2: prints tokens
+  #   3: compile no include
   log(file.split("/")[^1], "compiling")
   var cwd = wd
   var file_new = file
@@ -54,6 +64,12 @@ proc compile(file: string, prop: Table[string, string], wd: string, tree: int) =
     debug(file, "idk how your here")
 
 proc thread_check(text, cwd: string, tree: int, prop: Table[string, string]) {.gcsafe.} =
+  # check for included files
+  # args
+  # text: the pattern to match
+  # cwd: the working directory
+  # tree: same as compile()
+  # prop: the props to prepend
   var pattern = text.strip()
   var path = cwd
   if pattern[0] == '/':
@@ -69,18 +85,19 @@ proc thread_check(text, cwd: string, tree: int, prop: Table[string, string]) {.g
   if file_list.len == 1:
     compile(file_list[0], prop, path, tree)
   else:
-    #parallel:
     for file_name in file_list:
       spawnX compile(file_name, prop, path, tree)
 
 proc main() =
+  # main function, starts the compiler
+  var prev = "" # the previous argument
   var tree = 0
-  var prev = ""
   var prop = initTable[string, string]()
   for kind, key, val in p.getopt():
     case kind:
     of cmdEnd: doAssert(false)
     of cmdShortOption, cmdLongOption:
+      # switches without arguments
       case key:
       of "I", "no-use":
         tree = 3
@@ -94,6 +111,7 @@ proc main() =
       if prev == "":
         files.add(key)
       else:
+        # switches with arguments
         case prev:
         of "c", "cap":
           try:
@@ -110,14 +128,14 @@ proc main() =
               var to = value.split(":")[1].strip()
               prop[set] = to
             else:
-              log("root", "invalid argument " & key & value)
+              badArgError("Format for prop is `Prop:Value`")
         of "h", "help":
           help(2)
         prev = ""
   if prev != "":
     case prev:
-    of "p", "prop":
-      log("root", "invalid argument " & prev)
+    of "p", "prop", "c", "cap":
+      badArgError(prev & " switch requires arg")
     of "h", "help":
       help(2)
   if files.len < 1:
@@ -125,9 +143,9 @@ proc main() =
   if files.len < 2:
     compile(files[0], prop, getCurrentDir(), tree)
   wrote = 0
-  #parallel:
   for file in files:
     spawnX compile(file, prop, getCurrentDir(), tree)
   sync()
-  log("root", "DONE\n\nwrote " & $wrote & " files")
+  log("", "DONE\n\nwrote " & $wrote & " files", fgGreen)
+
 main()

@@ -21,7 +21,7 @@ proc initLexer*(text: string, fn: string): lexer =
   advanceLexer(result)
 
 proc constructTextToken(lex: var lexer): Token =
-  let EXCHARS  = "`#\t*+-_:;|<>(){}!$\n"#0123456789"
+  let EXCHARS = "`#\t*+-_:;|<>(){}!$\n"
   var text_str = ""
   var pos_start = lex.pos
   while lex.c_char != '\b' and not(lex.c_char in EXCHARS[1..^1]):
@@ -100,7 +100,8 @@ proc runLexer*(lex: var lexer): seq[Token] =
             tokens.add(initToken("tt_ident", "", lex.pos, advancePos(lex.pos, lex.c_char)))
             advanceLexer(lex)
           else:
-            tokens.add(initToken("tt_text", $lex.c_char, lex.pos, advancePos(lex.pos, lex.c_char)))
+            tokens.add(initToken("tt_text", $lex.c_char, lex.pos, advancePos(
+                lex.pos, lex.c_char)))
             advanceLexer(lex)
             break
         else:
