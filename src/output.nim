@@ -7,34 +7,35 @@ L.initLock()
 
 const DEBUG* = false
 
-proc help*(msg: int, app_name: string = "markup") =
-  echo &"Usage: {app_name} [OPTIONS] FILES..."
-  case msg:
-  of 1:
-    echo &"Try \"{app_name} --help\" for help."
-    echo &""
-    echo &"Error: Missing argument \"FILES...\"."
-  of 2:
-    echo ""
-    echo "Options:"
-    echo ""
-    echo "-h,\t--help\tShow this message and exit."
-    echo "-p,\t--prop\tPrepend properties to document."
-    echo "-t,\t--tree\tporints the ast and exits."
-    echo "-k,\t--token-tree\tpoints the tokens and exits."
-    echo "-I,\t--no-use\tdisables the use prop"
-    echo "-c,\t--cap\tcaps the cpu processed"
-    echo ""
-  else:
-    discard
-  quit()
-
 template log*(file, message: string, color: ForegroundColor = fgDefault) =
   for line in message.strip().split("\n"):
     if file != "":
       styledWrite(stdout, resetStyle, file, ": ", color, line, "\n")
     else:
       styledWrite(stdout, resetStyle, color, line, "\n")
+
+proc help*(msg: int) =
+  echo &"Usage: markup [OPTIONS] FILES..."
+  case msg:
+  of 1:
+    echo &"Try \"markup --help\" for help."
+    echo &""
+    log("", "Error: Bad Argument\n", fgRed)
+    return
+  of 2:
+    echo ""
+    echo "Options:"
+    echo ""
+    echo "-h, --help\tShow this message and exit."
+    echo "-p, --prop\tPrepend properties to document."
+    echo "-t, --tree\tPorints the ast and exits."
+    echo "-k, --token-tree\tPoints the tokens and exits."
+    echo "-I, --no-use\tDisables the use prop"
+    echo "-c, --cap\tCaps the cpu processed"
+    echo ""
+  else:
+    discard
+  quit()
 
 template debug*(file, message: string) =
   when DEBUG:
@@ -127,7 +128,7 @@ proc initError*(pos_start: position, pos_end: position, error_name: string, deta
   quit()
 
 proc badArgError*(reason: string) =
-  log("", "Error: Bad Argument\n", fgRed)
+  help(1)
   log("", reason)
   quit()
 

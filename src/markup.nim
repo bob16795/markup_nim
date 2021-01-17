@@ -139,11 +139,15 @@ proc main() =
     of "h", "help":
       help(2)
   if files.len < 1:
-    help(1)
+    badArgError("You must include at least 1 file")
   if files.len < 2:
+    if not fileExists(files[0]):
+      badArgError("file " & files[0] & " does not exist")
     compile(files[0], prop, getCurrentDir(), tree)
   wrote = 0
   for file in files:
+    if not fileExists(file):
+      badArgError("file " & file & " does not exist")
     spawnX compile(file, prop, getCurrentDir(), tree)
   sync()
   log("", "DONE\n\nwrote " & $wrote & " files", fgGreen)

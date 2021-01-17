@@ -6,7 +6,7 @@ var markupPath = rootDir / "src" / addFileExt("markup", ExeExt)
 var path = rootDir / "src"
 
 var (output, exitCode) = execCmdEx("nim c " &  markupPath)
-echo output
+#echo output
 doAssert exitCode == QuitSuccess
 
 proc execMarkup(args: varargs[string]): tuple[output: string, exitCode: int] =
@@ -31,11 +31,10 @@ proc inLines(lines: seq[string], line: string): bool =
     if line.normalize in i.normalize: return true
 
 suite "code style":
-  test "only terminal.nim echos":
+  test "only output.nim echos":
     var (output, exitCode) = execCmdEx("grep echo " & path & " -R")
     for line in output.strip().split("\n"):
-      echo line
-      assert "terminal.nim:" in line or
+      assert "output.nim:" in line or
         "Binary" in line or
         line.strip() == ""
 
@@ -44,8 +43,19 @@ suite "cli":
     var (output, exitCode) = execMarkup()
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
-    check(inLines(lines, "Error: Missing argument \"FILES...\"."))
-    check(not(inLines(lines, "wrote 0 files")))
+    check(inLines(lines, "You must include at least 1 file"))
+
+  test "compile_error_nonexistfile":
+    var (output, exitCode) = execMarkup("NONEXIST")
+    check exitCode == QuitSuccess
+    let lines = output.strip().split("\n")
+    check(inLines(lines, "file NONEXIST does not exist"))
+
+  test "compile_error_nonexistfiles":
+    var (output, exitCode) = execMarkup("NONEXIST", "ffdsafdsa")
+    check exitCode == QuitSuccess
+    let lines = output.strip().split("\n")
+    check(inLines(lines, "file NONEXIST does not exist"))
 
   test "help":
     var (output, exitCode) = execMarkup("--help")
@@ -229,11 +239,11 @@ suite "pdfer":
     check(inLines(lines, "(cha ) Tj"))
     check(inLines(lines, "(nged ) Tj"))
 
-suite "mathus":
-  test "fractions":
-    var (output, exitCode) = execMarkup("mathus/fractions.mu")
-    check exitCode == QuitSuccess
-    check("100 677 Td\n(z) Tj" in output)
-    check("107 684 Td\n(a) Tj" in output)
-    check("106 670 Td\n(b) Tj" in output)
-    check("106 681 m\n114 681 l\nS\n8 6 Td\n(y) Tj" in output)
+# suite "mathus":
+#   test "fractions":
+#     var (output, exitCode) = execMarkup("mathus/fractions.mu")
+#     check exitCode == QuitSuccess
+#     check("100 677 Td\n(z) Tj" in output)
+#     check("107 684 Td\n(a) Tj" in output)
+#     check("106 670 Td\n(b) Tj" in output)
+#     check("106 681 m\n114 681 l\nS\n8 6 Td\n(y) Tj" in output)
