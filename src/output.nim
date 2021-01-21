@@ -112,8 +112,6 @@ proc string_with_arrows(text: string, pos_start: position, pos_end: position): s
 
 proc `$`(obj: ErrorMethod): string =
   # formats a error into text
-  # ex:
-  # :
   result =  obj.error_name & ": " & obj.details & "\n"
   result &= "File <" & obj.pos_start.fn & ">, Line " & $(obj.pos_start.ln + 1)
   result &= "\n\n" & string_with_arrows(obj.pos_start.ftxt, obj.pos_start, obj.pos_end) & "\n"
@@ -128,9 +126,10 @@ proc initError*(pos_start: position, pos_end: position, error_name: string, deta
   quit()
 
 proc badArgError*(reason: string) =
+  # creates an error with no file
   help(1)
   log("", reason)
-  quit()
+  quit(1)
 
 proc initPos*(idx: int, ln: int, col: int, fn: string, ftxt: string): position =
   result.idx = idx

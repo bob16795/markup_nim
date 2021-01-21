@@ -115,10 +115,10 @@ proc main() =
         case prev:
         of "c", "cap":
           try:
-            if key.parseInt() <= 256:
+            if key.parseInt() <= 256 and key.parseInt() >= 1:
               setMaxPoolSize(key.parseInt())
             else:
-              badArgError("Range for cap is 0-255")
+              badArgError("Range for cap is 1-255")
           except:
             badArgError("Cap must be a number")
         of "p", "prop":

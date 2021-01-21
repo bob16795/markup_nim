@@ -41,21 +41,37 @@ suite "code style":
 suite "cli":
   test "compile_error_nofiles":
     var (output, exitCode) = execMarkup()
-    check exitCode == QuitSuccess
+    check exitCode != QuitSuccess
     let lines = output.strip().split("\n")
     check(inLines(lines, "You must include at least 1 file"))
 
   test "compile_error_nonexistfile":
     var (output, exitCode) = execMarkup("NONEXIST")
-    check exitCode == QuitSuccess
+    check exitCode != QuitSuccess
     let lines = output.strip().split("\n")
     check(inLines(lines, "file NONEXIST does not exist"))
 
   test "compile_error_nonexistfiles":
     var (output, exitCode) = execMarkup("NONEXIST", "ffdsafdsa")
-    check exitCode == QuitSuccess
+    check exitCode != QuitSuccess
     let lines = output.strip().split("\n")
     check(inLines(lines, "file NONEXIST does not exist"))
+
+  test "compile_error_bad_cap":
+    var (output, exitCode) = execMarkup("-c", "10000")
+    check exitCode != QuitSuccess
+    let lines = output.strip().split("\n")
+    check(inLines(lines, "Range for cap is 1-255"))
+    (output, exitCode) = execMarkup("-c", "0")
+    check exitCode != QuitSuccess
+    let lines2 = output.strip().split("\n")
+    check(inLines(lines2, "Range for cap is 1-255"))
+
+  test "compile_error_bad_prop":
+    var (output, exitCode) = execMarkup("-p", "oh")
+    check exitCode != QuitSuccess
+    let lines = output.strip().split("\n")
+    check(inLines(lines, "Format for prop is `Prop:Value`"))
 
   test "help":
     var (output, exitCode) = execMarkup("--help")
@@ -207,13 +223,6 @@ suite "interpreter":
     check(inLines(lines, "(fdsa ) Tj"))
     check(inLines(lines, "(nope ) Tj"))
     check(inLines(lines, "(new ) Tj"))
-
-  test "macros":
-    var (output, exitCode) = execMarkup("interpreter/macros.mu")
-    check exitCode == QuitSuccess
-    # let lines = output.strip().split("\n")
-    # check(inLines(lines, "( hello this is main) \""))
-    # check(inLines(lines, "( hello this is file 2) \""))
 
   test "include":
     var (output, exitCode) = execMarkup("interpreter/include/main.mu")
