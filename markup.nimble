@@ -5,6 +5,7 @@ author       = "bob16795"
 description  = "Markup in nim"
 license      = "MIT"
 bin          = @["markup"]
+installExt   = @["nim"]
 srcDir       = "src"
 
 # Deps
@@ -12,6 +13,7 @@ srcDir       = "src"
 requires "nim >= 0.10.0"
 requires "sdl2"
 requires "tempfile"
+requires: "nimPNG >= 0.1.0"
 
 import distros
 
