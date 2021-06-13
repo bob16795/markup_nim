@@ -1,4 +1,5 @@
-import md5, tables, strutils, strformat, ../output
+import md5, tables, strutils, strformat, ../output, nimPNG/nimz
+import os
 import streams
 
 type
@@ -10,6 +11,10 @@ type
     str*: string
 
 proc ident*(obj: pdf_object): string
+
+proc zcompress(data: string): string =
+  var nz = nzDeflateInit(data)
+  result = nz.zlib_compress()
 
 proc `$`*(obj: pdf_object): string =
   if obj.dict != initTable[string, seq[string]]():
@@ -27,7 +32,8 @@ proc `$`*(obj: pdf_object): string =
           result &= key & " [" & value.join(" ") & "]" & "\n"
     result &= ">>\n"
   else:
-    result = "<</Length " & $obj.stream.len & ">>\nstream\n" & obj.stream
+    var stream = zcompress(obj.stream)
+    result = "<</Length " & $stream.len & "/Filter[/FlateDecode]>>\nstream\n" & stream
     if result[^1] != '\n':
       result &= "\n"
     result &= "endstream\n"

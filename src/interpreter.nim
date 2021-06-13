@@ -14,6 +14,7 @@ type
     align*: int
     ident*: int
     just*: bool
+    size*: int
 
 proc initOutput(file: var pdf_file, props: var Table[string,
     string]): int_return =
@@ -65,10 +66,11 @@ proc repl_props(S: string, props: Table[string, string]): string =
     result = result.replace("()" & p & "()", q)
   result = result.replace(re"\(\)[^\(\)]*\(\)")
 
-proc repl_props_bracket(S: string, props: Table[string, string]): string =
+proc repl_props_bracket(S: string, props: Table[string, string], file: pdf_file): string =
   result = S
   for p, q in props:
     result = result.replace("[]" & p & "[]", q)
+  result = result.replace("[]Y[]", $file.y)
   result = result.replace(re"\[\][^\(\)]*\[\]")
 
 proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
@@ -84,15 +86,17 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     return
   var value = node.tag_value.repl_props(props).strip()
   case node.tag_name:
+  of "SIZE":
+    ctx.size = value.strip().parseInt()
   of "RAW":
     # <RAW: text>
     # adds text to line
-    value = value.repl_props_bracket(props)
+    value = value.repl_props_bracket(props, file)
     text &= value
   of "PRS":
     # <PRS: text>
     # parses text
-    value = value.repl_props_bracket(props)
+    value = value.repl_props_bracket(props, file)
     var lexer_obj = initLexer(value & "\n", props["file_name"] & " - PRS tag")
     var toks = runLexer(lexer_obj)
     var parser_obj = initParser(toks, -1)
@@ -116,10 +120,10 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     # <LNK: URL; TEXT?>
     # adds a link
     if ";" in value:
-      file.add_text(value.split(";")[1], 12, link = value.split(";")[0],
+      file.add_text(value.split(";")[1], ctx.size.toFloat(), link = value.split(";")[0],
           align = ctx.align)
     else:
-      file.add_text(value, 12, link = value, align = ctx.align)
+      file.add_text(value, ctx.size.toFloat(), link = value, align = ctx.align)
   of "PRT":
     # <PRT: Name>
     # adds a part heading
@@ -183,6 +187,8 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
             args[2].strip().parseFloat(), args[3].strip().parseFloat())
       except:
         discard
+    else:
+      debug(props["file_name"], "weird line: " & node.tag_name)
   of "VBRK":
     # <VBRK: num>
     # same as <LIN: num>
@@ -193,7 +199,7 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
   of "LINEBR":
     # <LINEBR>
     # adds a new line
-    file.add_text("", 12, align = ctx.align, ident = ctx.ident, just = ctx.just)
+    file.add_text("", ctx.size.toFloat(), align = ctx.align, ident = ctx.ident, just = ctx.just)
   of "COLBR":
     # <COLBR>
     # starts a new column
@@ -297,7 +303,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
           props[counter] = $(props[counter].parseInt() + by)
         except:
           props[counter] = "0"
-      file.add_text(text, 12, align = ctx.align, ident = ctx.ident,
+      file.add_text(text, ctx.size.toFloat(), align = ctx.align, ident = ctx.ident,
           just = ctx.just)
       text = ""
   of nkTextBold:
@@ -333,7 +339,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
           props[counter] = $(props[counter].parseInt() + by)
         except:
           props[counter] = "0"
-      file.add_text(text, 12, align = ctx.align, ident = ctx.ident,
+      file.add_text(text, ctx.size.toFloat(), align = ctx.align, ident = ctx.ident,
           just = ctx.just)
       text = ""
     if match(node.lang.strip(), re"^{.*}$"):
@@ -382,6 +388,7 @@ proc visitBody*(node: Node, file_name: string, wd: string, prop_pre: Table[
   ctx.align = 1
   ctx.ident = 0
   ctx.just = true
+  ctx.size = 12
   for node in node.Contains:
     ctx.wd = wd
     visit(node, file, props, ctx, text)

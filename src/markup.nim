@@ -90,6 +90,7 @@ proc thread_check(text, cwd: string, tree: int, prop: Table[string, string]) {.g
 
 proc main() =
   # main function, starts the compiler
+  # decides what the user wants to do
   var prev = "" # the previous argument
   var tree = 0
   var prop = initTable[string, string]()

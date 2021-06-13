@@ -86,6 +86,14 @@ proc alphaNumSymParser(psr: var parser): Node =
   while found:
     found = false
     case psr.c_tok.ttype:
+    of "tt_lparen":
+      found = true
+      text = text & "("
+      psr.advance()
+    of "tt_rparen":
+      found = true
+      text = text & ")"
+      psr.advance()
     of "tt_scolon":
       found = true
       text = text & ";"
@@ -417,6 +425,10 @@ proc alphaNumSymPropParser(psr: var parser): Node =
   while found:
     found = false
     case psr.c_tok.ttype:
+    of "tt_bar":
+      found = true
+      text = text & "|"
+      psr.advance()
     of "tt_equals":
       found = true
       text = text & "="
@@ -511,6 +523,10 @@ proc alphaNumSymMoreParser(psr: var parser): Node =
     of "tt_lparen":
       found = true
       text = text & "("
+      psr.advance()
+    of "tt_bar":
+      found = true
+      text = text & "|"
       psr.advance()
     of "tt_rparen":
       found = true

@@ -231,10 +231,10 @@ proc `$`*(file: var pdf_file): string =
   file.finish()
   var objects_ordered = file.sequence()
   result = "%PDF-1.2\n%ÐÔÅØ\n"
-  var footer = &"xref\n0 {len(objects_ordered) + 1}\n0000000000 65535 f\n"
-  var end_file = &"trailer\n<< /Size {len(objects_ordered) - 1}\n/Root 1 0 R\n>>\nstartxref\n"
+  var footer = &"xref\n0 {len(objects_ordered) + 2}\n0000000000 65535 f\r\n"
+  var end_file = &"trailer\n<<\n/Size {len(objects_ordered) + 2}\n/Root 1 0 R\n>>\nstartxref\n"
   for i, obj in (objects_ordered):
-      footer &= &"{len(result):010} 00000 n\n"
+      footer &= &"{len(result):010} 00000 n\r\n"
       result &= &"{i + 1} 0 obj\n{$obj}endobj\n"
   for i, obj in (objects_ordered):
     result = result.replace(&"{obj.ident()}", &"{i + 1} 0 R")
