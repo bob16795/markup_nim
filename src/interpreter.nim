@@ -209,6 +209,11 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     # adds an index entry
     if value != "":
       file.add_index_entry(value)
+  of "SPC":
+    # <SPC: size>
+    # adds emptyness with a height of size pt
+    if value != "":
+      file.add_space(value.strip().parseFloat())
   of "IF":
     # <IF: ()VAR()>
     # if statement idk how to explain lol

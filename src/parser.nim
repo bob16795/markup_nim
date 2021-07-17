@@ -31,7 +31,7 @@ macro parse_method*(head, body: untyped): untyped =
     parserReturn = head[2]
   else:
     error "Invalid node: " & head.lispRepr
-  
+
   result = newStmtList()
 
   template parserProc(a, b, psr, node): untyped =
@@ -57,19 +57,21 @@ macro parse_method*(head, body: untyped): untyped =
         adv += 1
         psr.advance()
       var node = Node(kind: b, start_pos: psr.c_tok.pos_start)
-      
+
   result.add(getAst(parserProc(parserName, parserReturn, ident("psr"), ident("node"))))
 
   for node in body.children:
     case node.kind:
-    
+
     of nnkTripleStrLit:
       discard
     of nnkAsgn:
       if eqIdent(node[1], "cur"):
-        node[1] = newNimNode(nnkDotExpr).add(newNimNode(nnkDotExpr).add(ident("psr")).add(ident("c_tok"))).add(ident("value"))
+        node[1] = newNimNode(nnkDotExpr).add(newNimNode(nnkDotExpr).add(ident(
+            "psr")).add(ident("c_tok"))).add(ident("value"))
       if node[0].strVal[0] == 'N':
-        node[0] = newNimNode(nnkDotExpr).add(ident("node")).add(ident(node[0].strVal[1..^1]))
+        node[0] = newNimNode(nnkDotExpr).add(ident("node")).add(ident(node[
+            0].strVal[1..^1]))
       result[0][6].add(node)
     else:
       result[0][6].add(node)
@@ -124,7 +126,8 @@ proc alphaNumSymParser(psr: var parser): Node =
       psr.advance()
   if text == "":
     return Node(kind: nkNone)
-  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
+  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start,
+      kind: nkAlphaNumSym, text: text)
 
 proc alphaNumSymTagParser(psr: var parser): Node =
   var text = ""
@@ -187,7 +190,8 @@ proc alphaNumSymTagParser(psr: var parser): Node =
       psr.advance()
   if text == "":
     return Node(kind: nkNone)
-  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
+  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start,
+      kind: nkAlphaNumSym, text: text)
 
 proc alphaNumSymEquParser(psr: var parser): Node =
   var text = ""
@@ -258,7 +262,8 @@ proc alphaNumSymEquParser(psr: var parser): Node =
       psr.advance()
   if text == "":
     return Node(kind: nkNone)
-  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
+  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start,
+      kind: nkAlphaNumSym, text: text)
 
 proc alphaNumSymTextParser(psr: var parser): Node =
   var text = ""
@@ -329,7 +334,8 @@ proc alphaNumSymTextParser(psr: var parser): Node =
       psr.advance()
   if text == "":
     return Node(kind: nkNone)
-  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
+  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start,
+      kind: nkAlphaNumSym, text: text)
 
 proc alphaNumSymLineParser(psr: var parser): Node =
   var text = ""
@@ -416,7 +422,8 @@ proc alphaNumSymLineParser(psr: var parser): Node =
       psr.advance()
   if text == "":
     return Node(kind: nkNone)
-  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
+  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start,
+      kind: nkAlphaNumSym, text: text)
 
 proc alphaNumSymPropParser(psr: var parser): Node =
   var text = ""
@@ -511,7 +518,8 @@ proc alphaNumSymPropParser(psr: var parser): Node =
       psr.advance()
   if text == "":
     return Node(kind: nkNone)
-  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
+  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start,
+      kind: nkAlphaNumSym, text: text)
 
 proc alphaNumSymMoreParser(psr: var parser): Node =
   var text = ""
@@ -590,7 +598,8 @@ proc alphaNumSymMoreParser(psr: var parser): Node =
       psr.advance()
   if text == "":
     return Node(kind: nkNone)
-  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start, kind: nkAlphaNumSym, text: text)
+  return Node(start_pos: start_pos, end_pos: psr.c_tok.pos_start,
+      kind: nkAlphaNumSym, text: text)
 
 parse_method codeblock >> nkCodeBlock:
   """
@@ -736,13 +745,13 @@ parse_method propLine >> nkPropLine:
   var invert = false
   var condition, prop, value = ""
   if psr.c_tok.ttype == "tt_exclaim":
-      invert = true
-      advance()
-      var n = psr.alphaNumSymParser()
-      if n.kind == nkNone:
-        bad()
-      condition = n.text
-      badifnot("tt_bar")
+    invert = true
+    advance()
+    var n = psr.alphaNumSymParser()
+    if n.kind == nkNone:
+      bad()
+    condition = n.text
+    badifnot("tt_bar")
   Ncondition = condition
   var n = psr.alphaNumSymParser()
   Nstart_statment = psr.c_tok.pos_start
@@ -800,8 +809,8 @@ parse_method propSec >> nkPropSec:
     bad()
   var nodes: seq[Node]
   while n.kind != nkNone:
-      nodes.add(n)
-      n = psr.propLineParser()
+    nodes.add(n)
+    n = psr.propLineParser()
   n = psr.propDivParser()
   if n.kind == nkNone:
     bad()
@@ -829,7 +838,7 @@ parse_method textLine >> nkTextLine:
   Nend_pos = psr.c_tok.pos_start
   NContains = text
   ok()
-  
+
 parse_method textComment >> nkTextComment:
   badifnot("tt_exclaim")
   var text = ""
@@ -858,7 +867,7 @@ parse_method textComment >> nkTextComment:
   Nend_pos = psr.c_tok.pos_start
   Ntext = text
   ok()
-  
+
 parse_method heading1 >> nkHeading1:
   for i in 1..1:
     badifnot("tt_hash")
@@ -882,7 +891,7 @@ parse_method heading2 >> nkHeading2:
   Nend_pos = psr.c_tok.pos_start
   Ntext = text
   ok()
-  
+
 parse_method heading3 >> nkHeading3:
   for i in 1..3:
     badifnot("tt_hash")
@@ -894,7 +903,7 @@ parse_method heading3 >> nkHeading3:
   Nend_pos = psr.c_tok.pos_start
   Ntext = text
   ok()
-  
+
 parse_method textHeading >> nkNone:
   test(heading3Parser, node)
   test(heading2Parser, node)
@@ -999,7 +1008,7 @@ parse_method textList >> nkList:
 parse_method textParEnd >> nkTextParEnd:
   badifnot("tt_newline")
   while psr.c_tok.ttype == "tt_newline":
-      advance()
+    advance()
   ok()
 
 parse_method textSec >> nkTextSec:
@@ -1050,7 +1059,8 @@ proc bodyParser(psr: var parser): Node =
       psr.goto(start)
       node = psr.textSecParser()
   if psr.c_tok.ttype != "tt_eof":
-    initError(psr.c_tok.pos_start, psr.c_tok.pos_end, "not at eof", "lastparsed =\n---\n" & $Nodes[^1] & "\n---")
+    initError(psr.c_tok.pos_start, psr.c_tok.pos_end, "not at eof",
+        "lastparsed =\n---\n" & $Nodes[^1] & "\n---")
   return Node(start_pos: start_pos,
               end_pos: psr.c_tok.pos_start,
               kind: nkBody,

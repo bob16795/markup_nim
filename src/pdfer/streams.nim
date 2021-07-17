@@ -92,18 +92,21 @@ proc CleanStream*(S: Stream): Stream =
         result.text &= line & "\n"
     of "Tj":
       if commands[0].strip != "" and len(commands) != 1:
-        var size = get_text_size_spacing(commands[0].strip(), font_size.parseFloat(), "times.ttf", char_spacing, word_spacing)
+        var size = get_text_size_spacing(commands[0].strip(),
+            font_size.parseFloat(), "times.ttf", char_spacing, word_spacing)
         if sgn(size) == 0:
           size = 0
         if width < x + size or width == -1:
           width = x + size
         result.text &= line & "\n"
     of "Tw":
-      if word_spacing != commands[0].parsefloat() and not(commands[0] in ["nan", "inf", "-inf"]):
+      if word_spacing != commands[0].parsefloat() and not(commands[0] in ["nan",
+          "inf", "-inf"]):
         word_spacing = commands[0].parsefloat()
         result.text &= line & "\n"
     of "Tc":
-      if char_spacing != commands[0].parsefloat() and not(commands[0] in ["nan", "inf", "-inf"]):
+      if char_spacing != commands[0].parsefloat() and not(commands[0] in ["nan",
+          "inf", "-inf"]):
         char_spacing = commands[0].parsefloat()
         result.text &= line & "\n"
     of "T*":
@@ -149,7 +152,9 @@ proc highlightStream*(St: Stream, R, G, B: float): array[0..1, Stream] =
   rect.text &= &"0 0 0 rg\n"
   return([CleanStream(rect), S])
 
-proc CreateTextStream*(x, y: int, size, linespacing: float, font, font_face: string, width: int, newline: bool, text: string, align: int = 1, ident: int, just: bool): Stream =
+proc CreateTextStream*(x, y: int, size, linespacing: float, font,
+    font_face: string, width: int, newline: bool, text: string, align: int = 1,
+    ident: int, just: bool): Stream =
   var wid = width
   result.text &= &"/{font} {size} Tf\n"
   result.text &= &"{x} {y.float} Td\n"
@@ -184,12 +189,14 @@ proc CreateTextStream*(x, y: int, size, linespacing: float, font, font_face: str
         var char_spacing: float = 0
         if just:
           if (pdf_line.len - 1) != 0:
-            var needs = ( wid.float - get_text_size(join(pdf_line[0..^2], " ").strip(), size, font_face))
+            var needs = (wid.float - get_text_size(join(pdf_line[0..^2],
+                " ").strip(), size, font_face))
             word_spacing = (needs / (len(pdf_line[0..^3])).toFloat())
           if $word_spacing == "inf" or $word_spacing == "-inf":
             word_spacing = 0
           if len(pdf_line) < 3:
-            char_spacing = (( wid.float - get_text_size(pdf_line[0], size, font_face)) / (len(pdf_line[0])).toFloat)
+            char_spacing = ((wid.float - get_text_size(pdf_line[0], size,
+                font_face)) / (len(pdf_line[0])).toFloat)
         result.text &= &"{word_spacing} Tw\n{char_spacing} Tc\n{out_line}\nT*\n"
         if ident == 2:
           wid = width - get_text_size("                ", size, font_face).int
@@ -264,11 +271,12 @@ proc trim*(A: Stream, height: int): array[0..1, Stream] =
     return [B.CleanStream(), C.CleanStream()]
   else:
     return [A.CleanStream(), Stream()]
-      
+
 proc `&`*(A, B: Stream): Stream =
   var full_text = A.text & "\n" & B.text
   result.text = full_text
   return(CleanStream(result))
 
 proc `$`*(A: Stream): string =
-  return "BT\n" & A.text.replace("{}IDENT{}","                ").replace("{}SPACE{}"," ") & "ET"
+  return "BT\n" & A.text.replace("{}IDENT{}", "                ").replace(
+      "{}SPACE{}", " ") & "ET"

@@ -1,7 +1,10 @@
 import sdl2/ttf as ttf
 import strutils, segfaults, tables
+import parseutils
+import ../output
 
 var faces {.threadvar.}: Table[cint, ttf.FontPtr]
+var face_names {.threadvar.}: Table[string, string]
 
 const page_sizes = @[ # this is in mm
 ("A4", [210, 297]),
@@ -93,3 +96,75 @@ func removebs*(text: string): string =
     result = text.replace("\\\\", "\\")
     result = result.replace("\\(", "(")
     result = result.replace("\\)", ")")
+
+proc parse_uint32(file: File): uint32 =
+  var a: seq[uint8] = @[0.uint8, 0.uint8, 0.uint8, 0.uint8]
+  if 4 != file.readBytes(a, 0, 4):
+    return
+  result = a[0].uint32 shl 24
+  result += a[1].uint32 shl 16
+  result += a[2].uint32 shl 8
+  result += a[3].uint32 shl 0
+
+proc parse_uint16(file: File): uint32 =
+  var a: seq[uint8] = @[0.uint8, 0.uint8]
+  if 2 != file.readBytes(a, 0, 2):
+    return
+  result = a[0].uint16 shl 8
+  result += a[1].uint16 shl 0
+
+proc parse_Tag(file: File): array[4, char] =
+  var a: seq[uint8] = @[0.uint8, 0.uint8, 0.uint8, 0.uint8]
+  if 4 != file.readBytes(a, 0, 4):
+    return
+  result[0] = a[0].char
+  result[1] = a[1].char
+  result[2] = a[2].char
+  result[3] = a[3].char
+
+proc getBaseFont*(file: string): string =
+  if file.split("/")[^1] in face_names:
+    return face_names[file.split("/")[^1]]
+  debug(file, "opening font")
+  var f = open(file)
+  discard parse_uint32(f)
+  var ftables = parse_uint16(f)
+  discard parse_uint16(f)
+  discard parse_uint16(f)
+  discard parse_uint16(f)
+  var tabs: Table[string, uint32]
+  for i in 1..ftables:
+    var name = parse_tag(f)
+    discard parse_uint32(f)
+    var offset = parse_uint32(f)
+    discard parse_uint32(f)
+    tabs[name.join("")] = offset
+  if not("name" in tabs):
+    return ""
+  f.setFilePos(tabs["name"].int)
+  var format = parse_uint16(f)
+  var tablen = 0
+  var ssoffset = 0
+  var names: seq[string] = @[]
+  if format == 0:
+    tablen = parse_uint16(f).int
+    ssoffset = parse_uint16(f).int
+  for i in 1..tablen:
+    discard parse_uint16(f).int
+    discard parse_uint16(f).int
+    discard parse_uint16(f).int
+    discard parse_uint16(f).int
+    var length = parse_uint16(f).int
+    var offset = parse_uint16(f).int
+    var a: seq[char] = @[]
+    for i in 0..length:
+      a &= " "
+    var pos = f.getFilePos()
+    f.setFilePos(tabs["name"].int + ssoffset + offset.int)
+    discard f.readChars(a, 0, length)
+    names &= a.join("")
+    f.setFilePos(pos)
+  debug(file, "name is " & names[6])
+  face_names[file.split("/")[^1]] = names[6] 
+  return names[6]
+

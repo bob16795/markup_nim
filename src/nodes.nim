@@ -1,38 +1,39 @@
 import strutils
 import output
-   
+
 type
-  NodeKind* = enum 
-    nkAlphaNumSym,  # letters, numbers, and symbols leaf
-    nkBody,         # body                          branch 
-    nkPropLine,     # property line                 leaf
-    nkPropDiv,      # property divider              leaf
-    nkPropSec,      # property section              branch
-    nkTextLine,     # a line of text                branch
-    nkTextBold,     # a Section of bold text        leaf
-    nkTextEmph,     # a Section of italic text      leaf
-    nkTextComment,  # a comment                     leaf
-    nkTextParEnd,   # end of paragaph               leaf
-    nkTextSec,      # a Section of text             branch
-    nkCodeBlock,    # a multiline section of code   leaf
-    nkTag,          # a <> tag                      leaf
-    nkEquation,     # a $Equation$                  leaf
-    nkHeading1,     # heading level 1               leaf
-    nkHeading2,     # heading level 2               leaf
-    nkHeading3,     # heading level 3               leaf
-    nkList,         # list                          branch
-    nkListLevel1,   # list level 1                  leaf
-    nkListLevel2,   # list level 2                  leaf
-    nkListLevel3,   # list level 3                  leaf
-    nkTable,        # list                          branch
-    nkTableRow,     # table row                     leaf
-    nkTableHeader,  # table heading                 branch
-    nkTableSplit,   # table heading                 leaf
-    nkNone,         # an empty node                 leaf
+  NodeKind* = enum
+    nkAlphaNumSym, # letters, numbers, and symbols leaf
+    nkBody,        # body                          branch
+    nkPropLine,    # property line                 leaf
+    nkPropDiv,     # property divider              leaf
+    nkPropSec,     # property section              branch
+    nkTextLine,    # a line of text                branch
+    nkTextBold,    # a Section of bold text        leaf
+    nkTextEmph,    # a Section of italic text      leaf
+    nkTextComment, # a comment                     leaf
+    nkTextParEnd,  # end of paragaph               leaf
+    nkTextSec,     # a Section of text             branch
+    nkCodeBlock,   # a multiline section of code   leaf
+    nkTag,         # a <> tag                      leaf
+    nkEquation,    # a $Equation$                  leaf
+    nkHeading1,    # heading level 1               leaf
+    nkHeading2,    # heading level 2               leaf
+    nkHeading3,    # heading level 3               leaf
+    nkList,        # list                          branch
+    nkListLevel1,  # list level 1                  leaf
+    nkListLevel2,  # list level 2                  leaf
+    nkListLevel3,  # list level 3                  leaf
+    nkTable,       # list                          branch
+    nkTableRow,    # table row                     leaf
+    nkTableHeader, # table heading                 branch
+    nkTableSplit,  # table heading                 leaf
+    nkNone,        # an empty node                 leaf
   Node* = object
     start_pos*, end_pos*: position
     case kind*: NodeKind
-    of nkEquation, nkAlphaNumSym, nkTextComment, nkHeading1, nkHeading2, nkHeading3, nkListLevel1, nkListLevel2, nkListLevel3, nkTextBold, nkTextEmph:
+    of nkEquation, nkAlphaNumSym, nkTextComment, nkHeading1, nkHeading2,
+        nkHeading3, nkListLevel1, nkListLevel2, nkListLevel3, nkTextBold, nkTextEmph:
       text*: string
     of nkBody, nkPropSec, nkTextSec, nkList, nkTextLine:
       Contains*: seq[Node]
@@ -114,7 +115,8 @@ proc `$`*(nod: Node): string =
   of nkTableSplit:
     node_type = "TableSplit"
   case nod.kind:
-  of nkEquation, nkAlphaNumSym, nkTextComment, nkHeading1, nkHeading2, nkHeading3, nkListLevel1, nkListLevel2, nkListLevel3, nkTextBold, nkTextEmph:
+  of nkEquation, nkAlphaNumSym, nkTextComment, nkHeading1, nkHeading2,
+      nkHeading3, nkListLevel1, nkListLevel2, nkListLevel3, nkTextBold, nkTextEmph:
     node_value = $nod.text
   of nkBody, nkPropSec, nkList, nkTextSec, nkTextLine:
     for node in nod.Contains:
@@ -143,7 +145,8 @@ proc `$`*(nod: Node): string =
       node_value = nod.tag_name.strip()
   of nkPropLine:
     if nod.condition != "":
-      node_value = nod.condition.strip() & ": " & $not(nod.invert) & " then " & nod.prop.strip() & " = " & nod.value.strip()
+      node_value = nod.condition.strip() & ": " & $not(nod.invert) & " then " &
+          nod.prop.strip() & " = " & nod.value.strip()
     else:
       node_value = nod.prop.strip() & " = " & nod.value.strip()
   return ("<" & node_type & ": " & node_value & ">").replace("><", ">\n<")
