@@ -732,7 +732,7 @@ parse_method textTable >> nkTable:
   while n.kind != nkNone:
     rows.add(n)
     n = psr.tableRowParser()
-  if len(rows) < 2:
+  if len(rows) < 1:
     bad()
   Nend_pos = psr.c_tok.pos_start
   Nrows = top & rows

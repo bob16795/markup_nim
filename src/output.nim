@@ -32,6 +32,7 @@ proc help*(msg: int) =
     echo "-k, --token-tree\tPoints the tokens and exits."
     echo "-I, --no-use\tDisables the use prop"
     echo "-c, --cap\tCaps the cpu processed"
+    echo "-s, --nostd\tFiles will never be written to stdout"
     echo ""
   else:
     discard
@@ -41,10 +42,11 @@ template debug*(file, message: string) =
   when DEBUG:
     echo "[DBG] ", message, ": ", file
 
-template output*(text, file, cwd: string) =
+template output*(text, file, cwd: string, std: bool) =
   acquire(L)
   if file == "":
-    echo text
+    if not(std):
+      echo text
   else:
     log(file.split("/")[^1], "writing")
     writeFile(cwd & "/" & file, text)

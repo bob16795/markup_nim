@@ -1,0 +1,6 @@
+!mugplug: testplugin
+{init}:
+    SET testpluginVersion = 0.0.0
+LS: (path)
+    EXISTS path | CODE: bash
+        ls (path)

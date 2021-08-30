@@ -1,6 +1,8 @@
 import tables, strutils, re, tempfile
 import nodes, output, lexer, parser, nodes
 import pdfer/pdfer, os, terminal, osproc
+import plugins/plugprop
+import strformat
 
 type
   int_return* = object
@@ -93,11 +95,21 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     # adds text to line
     value = value.repl_props_bracket(props, file)
     text &= value
+  of "LOG":
+    log(props["file_name"], "log " & value)
   of "PRS":
     # <PRS: text>
     # parses text
     value = value.repl_props_bracket(props, file)
     var lexer_obj = initLexer(value & "\n", props["file_name"] & " - PRS tag")
+    var toks = runLexer(lexer_obj)
+    var parser_obj = initParser(toks, -1)
+    var ast = parser_obj.runParser()
+    for new_node in ast.Contains:
+      visit(new_node, file, props, ctx, text)
+  of "PLG":
+    var text = plugCompile(value, ctx.wd)
+    var lexer_obj = initLexer(text & "\n", props["file_name"] & " - PRS tag")
     var toks = runLexer(lexer_obj)
     var parser_obj = initParser(toks, -1)
     var ast = parser_obj.runParser()
@@ -227,7 +239,22 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     except:
       file.set_cols(1)
   else:
-    debug(props["file_name"], "weird tag: " & node.tag_name)
+    # debug(props["file_name"], "weird tag: " & node.tag_name)
+    var args = value.split(",")
+    if args != @[]:
+      for arg in 0..<args.len:
+        props[$arg] = args[arg].strip()
+    value = &"[]{node.tag_name}[]"
+    value = value.repl_props_bracket(props, file)
+    var lexer_obj = initLexer(value & "\n", props["file_name"] & " - PRS tag")
+    var toks = runLexer(lexer_obj)
+    var parser_obj = initParser(toks, -1)
+    var ast = parser_obj.runParser()
+    for new_node in ast.Contains:
+      visit(new_node, file, props, ctx, text)
+    if args != @[]:
+      for arg in 0..<args.len:
+        props.del($arg)
 
 proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
     ctx: var context, text: var string) {.gcsafe.} =
