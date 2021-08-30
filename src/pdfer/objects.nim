@@ -16,9 +16,10 @@ type
 proc ident*(obj: pdf_object): string
 
 proc zcompress(data: string): string =
-  #if getEnv("NOCOMPRESS") == "":
-  var nz = nzDeflateInit(data)
-  result = nz.zlib_compress()
+  if getEnv("NOCOMPRESS") == "":
+    var nz = nzDeflateInit(data)
+    return nz.zlib_compress()
+  return data
 
 proc `$`*(obj: pdf_object): string =
   if obj.dict != initTable[string, seq[string]]():
@@ -36,11 +37,18 @@ proc `$`*(obj: pdf_object): string =
           result &= key & " [" & value.join(" ") & "]" & "\n"
     result &= ">>\n"
   else:
-    var stream = zcompress(obj.stream)
-    result = "<</Length " & $stream.len & "/Filter[/FlateDecode]>>\nstream\n" & stream
-    if result[^1] != '\n':
-      result &= "\n"
-    result &= "endstream\n"
+    if getEnv("NOCOMPRESS") == "":
+      var stream = zcompress(obj.stream)
+      result = "<</Length " & $stream.len & "/Filter[/FlateDecode]>>\nstream\n" & stream
+      if result[^1] != '\n':
+        result &= "\n"
+      result &= "endstream\n"
+    else:
+      var stream = obj.stream
+      result = "<</Length " & $stream.len & ">>\nstream\n" & stream
+      if result[^1] != '\n':
+        result &= "\n"
+      result &= "endstream\n"
 
 proc ident*(obj: pdf_object): string =
   if obj.dict != initTable[string, seq[string]]():

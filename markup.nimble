@@ -21,4 +21,5 @@ foreignDep "libsdl2-dev"
 
 task test, "Run the Markup tester!":
   withDir "tests":
-    exec "nim c -r tester"
+    echo "Compiling"
+    exec "nim -w:off --hints:off --verbosity:0 c -r tester"
