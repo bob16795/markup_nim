@@ -24,10 +24,12 @@ proc initLexer*(text: string, fn: string): lexer =
   advanceLexer(result)
 
 proc constructTextToken(lex: var lexer): Token =
-  let EXCHARS = "\t:;|(){}!,\n"
+  let EXCHARS = "\t:|(){}!,\n"
   var text_str = ""
   var pos_start = lex.pos
   while lex.c_char != '\b' and not(lex.c_char in EXCHARS[1..^1]):
+    if lex.c_char == '\\':
+      advanceLexer(lex)
     text_str = text_str & lex.c_char
     advanceLexer(lex)
   return initToken("tt_text", text_str, pos_start, lex.pos)
@@ -83,6 +85,10 @@ proc runLexer*(lex: var lexer): seq[Token] =
     of ',':
       tokens.add(initToken("tt_comma", ",", lex.pos, advancePos(lex.pos, lex.c_char)))
       advanceLexer(lex)
+    # of '\\':
+    #   advanceLexer(lex)
+    #   tokens.add(initToken("tt_text", $lex.c_char, lex.pos, advancePos(lex.pos, lex.c_char)))
+    #   advanceLexer(lex)
     of '\n':
       tokens.add(initToken("tt_newline", "", lex.pos, advancePos(lex.pos, lex.c_char)))
       advanceLexer(lex)
