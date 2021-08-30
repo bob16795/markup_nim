@@ -20,6 +20,3 @@ proc plugCompile*(file: string, wd: string): string =
   var parser_obj = initParser(toks, -1)
   var ast = parser_obj.runParser()
   return visitBody(ast, file_new, ".")
-
-when isMainModule:
-  echo plugCompile(paramStr(1), ".")

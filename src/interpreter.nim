@@ -96,7 +96,7 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     value = value.repl_props_bracket(props, file)
     text &= value
   of "LOG":
-    log(props["file_name"], "log " & value)
+    log(props["file_name"], value)
   of "PRS":
     # <PRS: text>
     # parses text

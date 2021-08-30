@@ -16,6 +16,7 @@ type
 proc ident*(obj: pdf_object): string
 
 proc zcompress(data: string): string =
+  #if getEnv("NOCOMPRESS") == "":
   var nz = nzDeflateInit(data)
   result = nz.zlib_compress()
 

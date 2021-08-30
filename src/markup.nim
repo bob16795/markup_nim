@@ -97,7 +97,7 @@ proc main() =
   var prev = "" # the previous argument
   var tree = 0
   var prop = initTable[string, string]()
-  var std = true
+  var std = false
   for kind, key, val in p.getopt():
     case kind:
     of cmdEnd: doAssert(false)
@@ -147,15 +147,16 @@ proc main() =
       help(2)
   if files.len < 1:
     badArgError("You must include at least 1 file")
-  if files.len < 2:
+  elif files.len < 2:
     if not fileExists(files[0]):
       badArgError("file " & files[0] & " does not exist")
     compile(files[0], prop, getCurrentDir(), tree, std)
-  wrote = 0
-  for file in files:
-    if not fileExists(file):
-      badArgError("file " & file & " does not exist")
-    spawnX compile(file, prop, getCurrentDir(), tree, std)
+  else:
+    wrote = 0
+    for file in files:
+      if not fileExists(file):
+        badArgError("file " & file & " does not exist")
+      spawnX compile(file, prop, getCurrentDir(), tree, std)
   sync()
   log("", "DONE\n\nwrote " & $wrote & " files", fgGreen)
 

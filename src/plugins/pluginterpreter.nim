@@ -1,4 +1,5 @@
 import plugnodes, strutils, strformat
+import ../output
 
 proc visit(node: Node, file_name: string, text: string, inside = false): string =
     result = text
@@ -34,7 +35,7 @@ proc visit(node: Node, file_name: string, text: string, inside = false): string 
             result &= node.command.split("\n")[1..^1].join("\n")
             result &= "\n```"
     else:
-        echo node.kind, " not implemented"
+        log("lol", "lol")
 
 
 proc visitBody*(node: Node, file_name: string, wd: string): string =

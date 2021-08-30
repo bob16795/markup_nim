@@ -10,6 +10,7 @@ var (output, exitCode) = execCmdEx("nim c " &  markupPath)
 doAssert exitCode == QuitSuccess
 
 proc execMarkup(args: varargs[string]): tuple[output: string, exitCode: int] =
+  setEnv("NOCOMPRESS", "True")
   var quotedArgs = @args
   quotedArgs.insert(markupPath)
   quotedArgs = quotedArgs.map((x: string) => x.quoteShell)
