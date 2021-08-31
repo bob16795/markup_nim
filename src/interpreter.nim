@@ -27,6 +27,8 @@ proc initOutput(file: var pdf_file, props: var Table[string,
 
 proc set_prop(props: var Table[string, string], file: var pdf_file,
     prop: string, value: string, ctx: var context) =
+  if value == "":
+    return
   if value[0] == '+':
     ctx.counters[prop] = value[1..^1].split(".")[0].parseInt()
     return
@@ -96,7 +98,12 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     value = value.repl_props_bracket(props, file)
     text &= value
   of "LOG":
-    log(props["file_name"], value)
+    log(props["file_name"], value, level=1)
+  of "WRN", "WARN":
+    log(props["file_name"], value, fgYellow, level=1)
+  of "ERR", "ERROR":
+    log(props["file_name"], value, fgRed, level=1)
+    quit(1)
   of "PRS":
     # <PRS: text>
     # parses text
@@ -108,8 +115,11 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     for new_node in ast.Contains:
       visit(new_node, file, props, ctx, text)
   of "PLG":
+    # <PLG: text>
+    # parses a plugin
+    log(props["file_name"], "Include " & value)
     var text = plugCompile(value, ctx.wd)
-    var lexer_obj = initLexer(text & "\n", props["file_name"] & " - PRS tag")
+    var lexer_obj = initLexer(text & "\n", props["file_name"] & " - PLG tag")
     var toks = runLexer(lexer_obj)
     var parser_obj = initParser(toks, -1)
     var ast = parser_obj.runParser()
@@ -310,7 +320,9 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
         var file_name = file_full[1].split("/")[^1]
         if match(file_name, re(pattern)):
           add = true
-          log(props["file_name"], "include " & file_name)
+          log(props["file_name"], "Include " & file_name)
+          var old_name = props["file_name"] 
+          props["file_name"] = props["file_name"] & "<-" & file_name
           var lexer_obj = initLexer(readFile(file_full[1]), file_full[1])
           var toks = runLexer(lexer_obj)
           var parser_obj = initParser(toks, -1)
@@ -320,6 +332,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
             ctx.wd = path
             visit(new_node, file, props, ctx, text)
             ctx.wd = wd
+          props["file_name"] = old_name
       props["slave"] = slave_start
       if add == false:
         log(props["file_name"], "warn: `" & node.text & "` ignored")
@@ -384,7 +397,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
           '}'}) & " " & tmpname)
       discard execCmdEx("rm " & tmpname)
       if errc != 0:
-        log("error while running code:\n" & outp, props["file_name"])
+        log("Error while running code:\n" & outp, props["file_name"])
         return
       var lexer_obj = initLexer(outp & "\n", props["file_name"] & " - code block")
       var toks = runLexer(lexer_obj)

@@ -7,7 +7,7 @@ type
     pos: position
     c_char: char
 
-const longTokens: seq[string] = @["muplug", "SET", "TAG", "CODE", "EXISTSD", "EXISTSF", "EXISTS", "PROP", "RAW"]
+const longTokens: seq[string] = @["muplug", "SET", "TAG", "CODE", "EXISTSD", "EXISTSF", "EXISTS", "PROP", "RAW", "RUN"]
 
 proc advanceLexer(lex: var lexer) =
   lex.pos = advancePos(lex.pos, lex.c_char)
@@ -114,4 +114,4 @@ proc runLexer*(lex: var lexer): seq[Token] =
 
 when isMainModule:
   var lex = initLexer(readFile("../../docs/examples/testplugin.mug"), "test")
-  log("test", $lex.runLexer())
+  log("Test", $lex.runLexer())

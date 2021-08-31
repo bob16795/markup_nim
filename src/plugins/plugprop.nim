@@ -15,7 +15,7 @@ proc plugCompile*(file: string, wd: string): string =
   if file[0] == '/':
     cwd = file.split("/")[0..^2].join("/")
     file_new = file.split("/")[^1]
-  var lexer_obj = initLexer(readFile(cwd & "/" & file_new), file_new)
+  var lexer_obj = initLexer(readFile(cwd & "/" & file_new).strip(), file_new)
   var toks = runLexer(lexer_obj)
   var parser_obj = initParser(toks, -1)
   var ast = parser_obj.runParser()

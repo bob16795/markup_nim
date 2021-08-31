@@ -36,7 +36,8 @@ suite "code style":
     var (output, exitCode) = execCmdEx("grep echo " & path & " -R")
     for line in output.strip().split("\n"):
       assert "output.nim:" in line or
-        "Binary" in line or
+        "binary" in line or
+        "markup.nimble:" in line or
         line.strip() == ""
 
 suite "cli":
@@ -232,6 +233,24 @@ suite "interpreter":
     check(inLines(lines, "(hello this is main ) Tj"))
     check(inLines(lines, "(hello this is file 2 ) Tj"))
 
+  test "tagLOG":
+    var (output, exitCode) = execMarkup("interpreter/log.mu")
+    check exitCode == QuitSuccess
+    let lines = output.strip().split("\n")
+    check(inLines(lines, "lol"))
+
+  test "tagWRN":
+    var (output, exitCode) = execMarkup("interpreter/wrn.mu")
+    check exitCode == QuitSuccess
+    let lines = output.strip().split("\n")
+    check(inLines(lines, "warn lol"))
+  
+  test "tagERR":
+    var (output, exitCode) = execMarkup("interpreter/err.mu")
+    check exitCode != QuitSuccess
+    let lines = output.strip().split("\n")
+    check(inLines(lines, "lol"))
+  
   test "tagPRP":
     var (output, exitCode) = execMarkup("interpreter/tag_prp.mu")
     check exitCode == QuitSuccess

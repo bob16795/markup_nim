@@ -34,9 +34,7 @@ proc visit(node: Node, file_name: string, text: string, inside = false): string 
             result &= "{" & node.command.split("\n")[0] & "}\n"
             result &= node.command.split("\n")[1..^1].join("\n")
             result &= "\n```"
-    else:
-        log("lol", "lol")
-
+    else: discard
 
 proc visitBody*(node: Node, file_name: string, wd: string): string =
   var text: string

@@ -22,7 +22,7 @@ proc compile(file: string, prop: Table[string, string], wd: string, tree: int, s
   #   1: prints ast
   #   2: prints tokens
   #   3: compile no include
-  log(file.split("/")[^1], "compiling")
+  log(file.split("/")[^1], "Compiling")
   var cwd = wd
   var file_new = file
   if file == "":
@@ -120,6 +120,14 @@ proc main() =
       else:
         # switches with arguments
         case prev:
+        of "v":
+          try:
+            if key.parseInt() >= 0:
+              verbose = key.parseInt()
+            else:
+              badArgError("Cant have negative verbosity")
+          except:
+            badArgError("verbosity must be a number")
         of "c", "cap":
           try:
             if key.parseInt() <= 256 and key.parseInt() >= 1:
@@ -158,6 +166,6 @@ proc main() =
         badArgError("file " & file & " does not exist")
       spawnX compile(file, prop, getCurrentDir(), tree, std)
   sync()
-  log("", "DONE\n\nwrote " & $wrote & " files", fgGreen)
+  log("", "DONE\n\nWrote " & $wrote & " files", fgGreen)
 
 main()

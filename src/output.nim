@@ -6,13 +6,15 @@ var L: Lock
 L.initLock()
 
 const DEBUG* = false
+var verbose* = 2
 
-template log*(file, message: string, color: ForegroundColor = fgDefault) =
-  for line in message.strip().split("\n"):
-    if file != "":
-      styledWrite(stdout, resetStyle, file, ": ", color, line, "\n")
-    else:
-      styledWrite(stdout, resetStyle, color, line, "\n")
+template log*(file, message: string, color: ForegroundColor = fgDefault, level: int = 2) =
+  if level <= verbose:
+    for line in message.strip().split("\n"):
+      if file != "":
+        styledWrite(stdout, resetStyle, file, ": ", color, line, "\n")
+      else:
+        styledWrite(stdout, resetStyle, color, line, "\n")
 
 proc help*(msg: int) =
   echo &"Usage: markup [OPTIONS] FILES..."
@@ -48,7 +50,7 @@ template output*(text, file, cwd: string, std: bool) =
     if not(std):
       echo text
   else:
-    log(file.split("/")[^1], "writing")
+    log(file.split("/")[^1], "Writing")
     writeFile(cwd & "/" & file, text)
   release(L)
   log(file, "Finished Writing")
