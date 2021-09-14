@@ -9,6 +9,7 @@ type
     file*: string
     props*: Table[string, string]
   context* = object
+    nonl*: bool
     ignore*: int
     counters*: Table[string, int]
     wd*: string
@@ -70,7 +71,8 @@ proc repl_props(S: string, props: Table[string, string]): string =
     result = result.replace("()" & p & "()", q)
   result = result.replace(re"\(\)[^\(\)]*\(\)")
 
-proc repl_props_bracket(S: string, props: Table[string, string], file: pdf_file): string =
+proc repl_props_bracket(S: string, props: Table[string, string],
+    file: pdf_file): string =
   result = S
   for p, q in props:
     result = result.replace("[]" & p & "[]", q)
@@ -90,6 +92,10 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     return
   var value = node.tag_value.repl_props(props).strip()
   case node.tag_name:
+  of "YESNL":
+    ctx.nonl = false
+  of "NONL":
+    ctx.nonl = true
   of "SIZE":
     ctx.size = value.strip().parseInt()
   of "RAW":
@@ -98,11 +104,11 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     value = value.repl_props_bracket(props, file)
     text &= value
   of "LOG":
-    log(props["file_name"], value, level=1)
+    log(props["file_name"], value, level = 1)
   of "WRN", "WARN":
-    log(props["file_name"], value, fgYellow, level=1)
+    log(props["file_name"], value, fgYellow, level = 1)
   of "ERR", "ERROR":
-    log(props["file_name"], value, fgRed, level=1)
+    log(props["file_name"], value, fgRed, level = 1)
     quit(1)
   of "PRS":
     # <PRS: text>
@@ -128,6 +134,7 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
   of "PRP":
     # <PRP: text>
     # parses text as prop section
+    value = value.repl_props_bracket(props, file)
     var lexer_obj = initLexer("---\n" & value & "\n---", props["file_name"] & " - PRP tag")
     var toks = runLexer(lexer_obj)
     var parser_obj = initParser(toks, -1)
@@ -142,8 +149,8 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     # <LNK: URL; TEXT?>
     # adds a link
     if ";" in value:
-      file.add_text(value.split(";")[1], ctx.size.toFloat(), link = value.split(";")[0],
-          align = ctx.align)
+      file.add_text(value.split(";")[1], ctx.size.toFloat(), link = value.split(
+          ";")[0], align = ctx.align)
     else:
       file.add_text(value, ctx.size.toFloat(), link = value, align = ctx.align)
   of "PRT":
@@ -205,8 +212,8 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
         file.add_vrule(10, 10)
     elif args.len == 4:
       try:
-        file.add_line(args[0].strip().parseFloat(), args[1].strip().parseFloat(),
-            args[2].strip().parseFloat(), args[3].strip().parseFloat())
+        file.add_line(args[0].strip().parseFloat(), args[1].strip().parseFloat(
+          ), args[2].strip().parseFloat(), args[3].strip().parseFloat())
       except:
         discard
     else:
@@ -221,7 +228,8 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
   of "LINEBR":
     # <LINEBR>
     # adds a new line
-    file.add_text("", ctx.size.toFloat(), align = ctx.align, ident = ctx.ident, just = ctx.just)
+    file.add_text("", ctx.size.toFloat(), align = ctx.align, ident = ctx.ident,
+        just = ctx.just)
   of "COLBR":
     # <COLBR>
     # starts a new column
@@ -251,20 +259,18 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
   else:
     # debug(props["file_name"], "weird tag: " & node.tag_name)
     var args = value.split(",")
-    if args != @[]:
+    var p: Table[string, string]
+    if args != @[""]:
       for arg in 0..<args.len:
-        props[$arg] = args[arg].strip()
-    value = &"[]{node.tag_name}[]"
-    value = value.repl_props_bracket(props, file)
+        p[$arg] = args[arg].strip()
+    value = props[node.tag_name]
+    value = value.repl_props(p)
     var lexer_obj = initLexer(value & "\n", props["file_name"] & " - PRS tag")
     var toks = runLexer(lexer_obj)
     var parser_obj = initParser(toks, -1)
     var ast = parser_obj.runParser()
     for new_node in ast.Contains:
       visit(new_node, file, props, ctx, text)
-    if args != @[]:
-      for arg in 0..<args.len:
-        props.del($arg)
 
 proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
     ctx: var context, text: var string) {.gcsafe.} =
@@ -321,7 +327,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
         if match(file_name, re(pattern)):
           add = true
           log(props["file_name"], "Include " & file_name)
-          var old_name = props["file_name"] 
+          var old_name = props["file_name"]
           props["file_name"] = props["file_name"] & "<-" & file_name
           var lexer_obj = initLexer(readFile(file_full[1]), file_full[1])
           var toks = runLexer(lexer_obj)
@@ -340,17 +346,18 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
     file.add_equation(node.text)
     text = ""
   of nkTextParEnd:
-    if text != "\b" and text != "":
-      if "prepend" in props:
-        text = props["prepend"].replace("||", "()").repl_props(props) & text
-      for counter, by in ctx.counters:
-        try:
-          props[counter] = $(props[counter].parseInt() + by)
-        except:
-          props[counter] = "0"
-      file.add_text(text, ctx.size.toFloat(), align = ctx.align, ident = ctx.ident,
-          just = ctx.just)
-      text = ""
+    if not ctx.nonl:
+      if text != "\b" and text != "":
+        if "prepend" in props:
+          text = props["prepend"].replace("||", "()").repl_props(props) & text
+        for counter, by in ctx.counters:
+          try:
+            props[counter] = $(props[counter].parseInt() + by)
+          except:
+            props[counter] = "0"
+        file.add_text(text, ctx.size.toFloat(), align = ctx.align,
+            ident = ctx.ident, just = ctx.just)
+        text = ""
   of nkTextBold:
     if text != "\b":
       var line = node.text
@@ -376,22 +383,25 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
   of nkListLevel3:
     file.add_text("        - " & node.text, 12)
   of nkCodeBlock:
-    if text != "\b" and text != "":
-      if "prepend" in props:
-        text = props["prepend"].replace("[]", "()").repl_props(props) & text
-      for counter, by in ctx.counters:
-        try:
-          props[counter] = $(props[counter].parseInt() + by)
-        except:
-          props[counter] = "0"
-      file.add_text(text, ctx.size.toFloat(), align = ctx.align, ident = ctx.ident,
-          just = ctx.just)
-      text = ""
+    if not ctx.nonl:
+      if text != "\b" and text != "":
+        if "prepend" in props:
+          text = props["prepend"].replace("[]", "()").repl_props(props) & text
+        for counter, by in ctx.counters:
+          try:
+            props[counter] = $(props[counter].parseInt() + by)
+          except:
+            props[counter] = "0"
+        file.add_text(text, ctx.size.toFloat(), align = ctx.align,
+            ident = ctx.ident, just = ctx.just)
+        text = ""
+    else:
+      text &= " "
     if match(node.lang.strip(), re"^{.*}$"):
       var (lol, tmpname) = mkstemp()
       lol.close()
       var tmpfile = tmpname.open(fmWrite)
-      tmpfile.write(node.code.repl_props(props))
+      tmpfile.write(node.code.repl_props_bracket(props, file))
       tmpfile.close()
       let (outp, errc) = execCmdEx(node.lang.strip().strip(true, true, {'{',
           '}'}) & " " & tmpname)

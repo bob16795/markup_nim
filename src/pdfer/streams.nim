@@ -54,6 +54,24 @@ proc split_paren(S: string): seq[string] =
         result.delete(i)
         break
 
+proc split_size(s: string, width: int, font: string, size: float): seq[string] =
+  var tmp = s.split(" ")
+  var ran = true
+  for w in 0..<tmp.len():
+    if get_text_size(tmp[w], size, font) > width.float:
+      ran = true
+      var constructed = ""
+      for c in tmp[w]:
+        if get_text_size(constructed & c, size, font) > width.float:
+          result &= constructed
+          constructed = ""
+        constructed &= c
+      if constructed != "":
+        result &= constructed
+    else:
+      result &= tmp[w]
+
+
 proc CleanStream*(S: Stream): Stream =
   var full_text = S.text
   result.x = -1
@@ -165,7 +183,8 @@ proc CreateTextStream*(x, y: int, size, linespacing: float, font,
     if ident == 0:
       wid = width - get_text_size("                ", size, font_face).int
       result.text &= "({}IDENT{}) Tj\n"
-    for word in line.split(" "):
+    for word in line.split_size(width - get_text_size("                ", size,
+        font_face).int, font_face, size):
       if word == "\\n":
         out_line &= " ) Tj\n"
         out_line &= &"/F1 {size} Tf\n("

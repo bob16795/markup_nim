@@ -1,16 +1,17 @@
 import plugnodes, strutils, strformat
 import ../output
 
-proc visit(node: Node, file_name: string, text: string, inside = false): string =
+proc visit(node: Node, file_name: string, text: string,
+        inside = false): string =
     result = text
     case node.kind:
     of nkTagDef:
         var args: seq[string]
         if node.extra[0].kind != nkNone:
             args = node.extra[0].names
+        result &= node.name
         if node.predef:
             result &= file_name
-        result &= node.name
         result &= ":;"
         var value = ""
         for n in node.lines:
@@ -23,11 +24,12 @@ proc visit(node: Node, file_name: string, text: string, inside = false): string 
     of nkLine:
         case node.keyword:
         of "RAW":
-            result &= "\n" & node.command.replace("\n", "\n\n") & "\n"
+            result &= "\n" & node.command.replace("\n", "\n\n")
         of "SET":
             result &= "<PRP: " & node.command.replace("=", ":") & ">"
         of "TAG":
-            var lol = "<" & node.command.split(" ")[0] & ": " & node.command.split(" ")[1..^1].join(" ") & ">"
+            var lol = "<" & node.command.split(" ")[0] & ": " &
+                    node.command.split(" ")[1..^1].join(" ") & ">"
             result &= lol.replace(": >", ">")
         of "CODE":
             result &= "```"
@@ -37,11 +39,11 @@ proc visit(node: Node, file_name: string, text: string, inside = false): string 
     else: discard
 
 proc visitBody*(node: Node, file_name: string, wd: string): string =
-  var text: string
-  var file = file_name.split("/")[^1].replace(".mup", "")
-  for node in node.Contains:
-    text = visit(node, file, text)
-  text = "---\n" & text & "---"
-  if file & "Init" in text:
-    text &= &"\n<{file}Init>\n"
-  return text
+    var text: string
+    var fn = file_name.split("/")[^1].replace(".mup", "")
+    for node in node.Contains:
+        text = visit(node, fn, text)
+    text = "---\n" & text & "---"
+    if "init" & fn in text:
+        text &= &"\n!init the class\n<init{fn}>\n!done\n"
+    return text
