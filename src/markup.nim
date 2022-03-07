@@ -2,12 +2,15 @@ import parseopt, tables, os, re
 import strutils, output
 import lexer, parser, nodes, tokenclass
 import interpreter, threadpool, terminal
+import strformat
+import plugins/plugprop
 
-var p = initOptParser()
+var
+  p = initOptParser()
+  files: seq[string]
+  wrote: int
+  plugin: bool
 
-var files: seq[string]
-
-var wrote: int
 
 proc thread_check(text, cwd: string, tree: int, prop: Table[string, string], std: bool) {.gcsafe.}
 
@@ -23,6 +26,9 @@ proc compile(file: string, prop: Table[string, string], wd: string, tree: int, s
   #   2: prints tokens
   #   3: compile no include
   log(file.split("/")[^1], "Compiling")
+  if plugin:
+    output(plugCompile(file, wd), "stdout", wd, std)
+    return
   var cwd = wd
   var file_new = file
   if file == "":
@@ -40,9 +46,6 @@ proc compile(file: string, prop: Table[string, string], wd: string, tree: int, s
     var use = output.props["use"]
     var output_file = output.props["output"]
     var ignore = output.props["ignore"]
-    #if fileExists(cwd & "/" & output_file):
-    #  if fileNewer(cwd & "/" & file, cwd & "/" & output_file):
-    #    ignore = "True"
     if ignore != "True":
       output(output.file, output_file, cwd, std)
       wrote += 1
@@ -53,9 +56,9 @@ proc compile(file: string, prop: Table[string, string], wd: string, tree: int, s
       else:
         thread_check(use, cwd, tree, prop, std)
   of 1:
-    output($ast, "", cwd, std)
+    output($ast, "stdout", cwd, std)
   of 2:
-    output($toks, "", cwd, std)
+    output($toks, "stdout", cwd, std)
   of 3:
     var output = visitBody(ast, file_new, cwd, prop)
     var output_file = output.props["output"]
@@ -106,6 +109,8 @@ proc main() =
       case key:
       of "I", "no-use":
         tree = 3
+      of "P", "plugin":
+        plugin = true
       of "t", "tree":
         tree = 1
       of "k", "token-tree":
@@ -132,6 +137,7 @@ proc main() =
           try:
             if key.parseInt() <= 256 and key.parseInt() >= 1:
               setMaxPoolSize(key.parseInt())
+              setMinPoolSize(key.parseInt())
             else:
               badArgError("Range for cap is 1-255")
           except:
@@ -143,29 +149,33 @@ proc main() =
               var to = value.split(":")[1].strip()
               prop[set] = to
             else:
-              badArgError("Format for prop is `Prop:Value`")
+              badArgError("Format for prop is 'Prop:Value'")
         of "h", "help":
           help(2)
+        else:
+          InvalidArgError(&"Invalid Option: '-{prev}'")
         prev = ""
   if prev != "":
     case prev:
     of "p", "prop", "c", "cap":
-      badArgError(prev & " switch requires arg")
+      badArgError(&"The '-{prev}' switch requires argument")
     of "h", "help":
       help(2)
+    else:
+      InvalidArgError(&"Invalid Option: '-{prev}'")
   if files.len < 1:
     badArgError("You must include at least 1 file")
   elif files.len < 2:
     if not fileExists(files[0]):
-      badArgError("file " & files[0] & " does not exist")
+      badArgError(&"file {files[0]} does not exist")
     compile(files[0], prop, getCurrentDir(), tree, std)
   else:
     wrote = 0
     for file in files:
       if not fileExists(file):
-        badArgError("file " & file & " does not exist")
+        badArgError(&"file {file} does not exist")
       spawnX compile(file, prop, getCurrentDir(), tree, std)
   sync()
-  log("", "DONE\n\nWrote " & $wrote & " files", fgGreen)
+  log("", &"DONE\n\nWrote {wrote} files", fgGreen)
 
 main()

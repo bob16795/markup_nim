@@ -59,7 +59,7 @@ proc set_prop(props: var Table[string, string], file: var pdf_file,
   of "footer":
     file.footer = value.strip().split(",")
   of "prepend":
-    debug(props["file_name"], "prepend set to \"" & value.strip() & "\"")
+    debug(props["file_name"], &"prepend set to '{value.strip()}'")
   of "LineSpacing":
     file.line_spacing = value.parseFloat()
   of "geometry":
@@ -68,14 +68,14 @@ proc set_prop(props: var Table[string, string], file: var pdf_file,
 proc repl_props(S: string, props: Table[string, string]): string =
   result = S
   for p, q in props:
-    result = result.replace("()" & p & "()", q)
+    result = result.replace(&"(){p}()", q)
   result = result.replace(re"\(\)[^\(\)]*\(\)")
 
 proc repl_props_bracket(S: string, props: Table[string, string],
     file: pdf_file): string =
   result = S
   for p, q in props:
-    result = result.replace("[]" & p & "[]", q)
+    result = result.replace(&"[]{p}[]", q)
   result = result.replace("[]Y[]", $file.y)
   result = result.replace(re"\[\][^\(\)]*\[\]")
 
@@ -123,7 +123,7 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
   of "PLG":
     # <PLG: text>
     # parses a plugin
-    log(props["file_name"], "Include " & value)
+    log(props["file_name"], &"Include '{value}'")
     var text = plugCompile(value, ctx.wd)
     var lexer_obj = initLexer(text & "\n", props["file_name"] & " - PLG tag")
     var toks = runLexer(lexer_obj)
@@ -135,7 +135,7 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     # <PRP: text>
     # parses text as prop section
     value = value.repl_props_bracket(props, file)
-    var lexer_obj = initLexer("---\n" & value & "\n---", props["file_name"] & " - PRP tag")
+    var lexer_obj = initLexer(&"---\n{value}\n---", props["file_name"] & " - PRP tag")
     var toks = runLexer(lexer_obj)
     var parser_obj = initParser(toks, -1)
     var ast = parser_obj.runParser()
@@ -217,7 +217,7 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
       except:
         discard
     else:
-      debug(props["file_name"], "weird line: " & node.tag_name)
+      debug(props["file_name"], &"weird line: {node.tag_name}")
   of "VBRK":
     # <VBRK: num>
     # same as <LIN: num>
@@ -257,7 +257,6 @@ proc visit_tag(node: Node, file: var pdf_file, props: var Table[string, string],
     except:
       file.set_cols(1)
   else:
-    # debug(props["file_name"], "weird tag: " & node.tag_name)
     var args = value.split(",")
     var p: Table[string, string]
     if args != @[""]:
@@ -292,7 +291,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
       return
     if not(node.condition.strip() in props):
       initError(node.start_condition, node.start_condition,
-          "Prop allready exists", "'" & node.condition.strip() & "'")
+          "Prop allready exists", &"'{node.condition.strip()}'")
     if node.invert == (props[node.condition.strip()] == "False"):
       props.set_prop(file, node.prop.strip(), node.value.strip(), ctx)
       return
@@ -341,7 +340,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
           props["file_name"] = old_name
       props["slave"] = slave_start
       if add == false:
-        log(props["file_name"], "warn: `" & node.text & "` ignored")
+        log(props["file_name"], &"warn: '{node.text}' ignored")
   of nkEquation:
     file.add_equation(node.text)
     text = ""
@@ -407,7 +406,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
           '}'}) & " " & tmpname)
       discard execCmdEx("rm " & tmpname)
       if errc != 0:
-        log("Error while running code:\n" & outp, props["file_name"])
+        log(&"Error while running code:\n{outp}", props["file_name"])
         return
       var lexer_obj = initLexer(outp & "\n", props["file_name"] & " - code block")
       var toks = runLexer(lexer_obj)
@@ -419,8 +418,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
       for s in node.code.strip.split("\n"):
         file.add_text("> " & s, 12, bg = color(r: 0.7, g: 0.7, b: 0.7))
   else:
-    initError(node.start_pos, node.end_pos, "Not Implemented", "'visit" &
-        $node.kind & "'")
+    initError(node.start_pos, node.end_pos, "Not Implemented", &"'visit{node.kind}'")
 
 proc visitBody*(node: Node, file_name: string, wd: string, prop_pre: Table[
     string, string]): int_return =

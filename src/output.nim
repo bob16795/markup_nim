@@ -17,14 +17,16 @@ template log*(file, message: string, color: ForegroundColor = fgDefault, level: 
         styledWrite(stdout, resetStyle, color, line, "\n")
 
 proc help*(msg: int) =
-  echo &"Usage: markup [OPTIONS] FILES..."
   case msg:
+  of 0:
+    echo &"Usage: markup [OPTIONS] FILES..."
   of 1:
     echo &"Try \"markup --help\" for help."
     echo &""
     log("", "Error: Bad Argument\n", fgRed)
     return
   of 2:
+    echo "Usage: markup [OPTIONS] FILES..."
     echo ""
     echo "Options:"
     echo ""
@@ -34,11 +36,16 @@ proc help*(msg: int) =
     echo "-k, --token-tree\tPoints the tokens and exits."
     echo "-I, --no-use\tDisables the use prop"
     echo "-c, --cap\tCaps the cpu processed"
-    echo "-s, --nostd\tFiles will never be written to stdout"
+    echo "-P, --plugin\tCompiles a file to stdout"
     echo ""
+    quit()
+  of 3:
+    echo &"Try \"markup --help\" for help."
+    echo &""
+    log("", "Error: Invalid Argument\n", fgRed)
+    return
   else:
     discard
-  quit()
 
 template debug*(file, message: string) =
   when DEBUG:
@@ -46,9 +53,10 @@ template debug*(file, message: string) =
 
 template output*(text, file, cwd: string, std: bool) =
   acquire(L)
-  if file == "":
-    if not(std):
-      echo text
+  if file == "stdout":
+    echo text
+  elif file == "":
+    debug("bad output", "file")
   else:
     log(file.split("/")[^1], "Writing")
     writeFile(cwd & "/" & file, text)
@@ -131,7 +139,15 @@ proc initError*(pos_start: position, pos_end: position, error_name: string, deta
 
 proc badArgError*(reason: string) =
   # creates an error with no file
+  help(0)
   help(1)
+  log("", reason)
+  quit(1)
+
+proc InvalidArgError*(reason: string) =
+  # creates an error with no file
+  help(0)
+  help(3)
   log("", reason)
   quit(1)
 

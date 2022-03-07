@@ -6,7 +6,6 @@ var markupPath = rootDir / "src" / addFileExt("markup", ExeExt)
 var path = rootDir / "src"
 
 var (output, exitCode) = execCmdEx("nim c " &  markupPath)
-#echo output
 doAssert exitCode == QuitSuccess
 
 proc execMarkup(args: varargs[string]): tuple[output: string, exitCode: int] =
