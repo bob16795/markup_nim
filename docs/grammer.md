@@ -1,3 +1,6 @@
+[back](main.md)
+
+```
 body        := [propSec | textSec]+
 textSec     := [textComment |
                 textList |
@@ -53,3 +56,4 @@ tableSplit  := `|` [`-`+ `|`]+
 emphText    := [`_` text `_`] | [`*` text `*`] 
 boldText    := [`__` text `__`] | [`**` text `**`] 
 codeBlock   := `\`\`\`` text? `\n` [text | `\n`] `\`\`\``
+```

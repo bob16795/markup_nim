@@ -5,7 +5,7 @@ var L: Lock
 
 L.initLock()
 
-const DEBUG* = false
+const DEBUG* {.booldefine.} = false
 var verbose* = 2
 
 template log*(file, message: string, color: ForegroundColor = fgDefault, level: int = 2) =
@@ -36,7 +36,7 @@ proc help*(msg: int) =
     echo "-k, --token-tree\tPoints the tokens and exits."
     echo "-I, --no-use\tDisables the use prop"
     echo "-c, --cap\tCaps the cpu processed"
-    echo "-P, --plugin\tCompiles a file to stdout"
+    echo "-P, --plugin\tCompiles a mup file to stdout"
     echo ""
     quit()
   of 3:
@@ -51,7 +51,7 @@ template debug*(file, message: string) =
   when DEBUG:
     echo "[DBG] ", message, ": ", file
 
-template output*(text, file, cwd: string, std: bool) =
+template output*(text, file, cwd: string) =
   acquire(L)
   if file == "stdout":
     echo text

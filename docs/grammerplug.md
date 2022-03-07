@@ -1,3 +1,6 @@
+[back](main.md)
+
+```
 body          := `!muplug:` text `\n` [tagDef | `\n`]+
 tagDef        := [`{` text `}` | text] `:` tagargs? `\n` [line]+
 line          := `\t` cond? command comment? `\n`
@@ -12,3 +15,4 @@ condoperation := [`EXISTSD` |
                   `EXISTSF` |
                   `EXISTS` |
                   `PROP`]
+```

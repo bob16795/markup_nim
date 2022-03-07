@@ -12,9 +12,9 @@ var
   plugin: bool
 
 
-proc thread_check(text, cwd: string, tree: int, prop: Table[string, string], std: bool) {.gcsafe.}
+proc thread_check(text, cwd: string, tree: int, prop: Table[string, string]) {.gcsafe.}
 
-proc compile(file: string, prop: Table[string, string], wd: string, tree: int, std: bool) =
+proc compile(file: string, prop: Table[string, string], wd: string, tree: int) =
   # compiles a file and sub files
   # args
   # file: the file to compile
@@ -27,7 +27,7 @@ proc compile(file: string, prop: Table[string, string], wd: string, tree: int, s
   #   3: compile no include
   log(file.split("/")[^1], "Compiling")
   if plugin:
-    output(plugCompile(file, wd), "stdout", wd, std)
+    output(plugCompile(file, wd), "stdout", wd)
     return
   var cwd = wd
   var file_new = file
@@ -47,29 +47,29 @@ proc compile(file: string, prop: Table[string, string], wd: string, tree: int, s
     var output_file = output.props["output"]
     var ignore = output.props["ignore"]
     if ignore != "True":
-      output(output.file, output_file, cwd, std)
+      output(output.file, output_file, cwd)
       wrote += 1
     if use != "":
       if ";" in use:
         for text in use.split(";"):
-          spawnX thread_check(text, cwd, tree, prop, std)
+          spawnX thread_check(text, cwd, tree, prop,)
       else:
-        thread_check(use, cwd, tree, prop, std)
+        thread_check(use, cwd, tree, prop)
   of 1:
-    output($ast, "stdout", cwd, std)
+    output($ast, "stdout", cwd)
   of 2:
-    output($toks, "stdout", cwd, std)
+    output($toks, "stdout", cwd)
   of 3:
     var output = visitBody(ast, file_new, cwd, prop)
     var output_file = output.props["output"]
     var ignore = output.props["ignore"]
     if ignore != "True":
-      output(output.file, output_file, cwd, std)
+      output(output.file, output_file, cwd)
       wrote += 1
   else:
     debug(file, "idk how your here")
 
-proc thread_check(text, cwd: string, tree: int, prop: Table[string, string], std: bool) {.gcsafe.} =
+proc thread_check(text, cwd: string, tree: int, prop: Table[string, string]) {.gcsafe.} =
   # check for included files
   # args
   # text: the pattern to match
@@ -89,10 +89,10 @@ proc thread_check(text, cwd: string, tree: int, prop: Table[string, string], std
     if match(file_name, re(pattern)):
       file_list &= file_full
   if file_list.len == 1:
-    compile(file_list[0], prop, path, tree, std)
+    compile(file_list[0], prop, path, tree)
   else:
     for file_name in file_list:
-      spawnX compile(file_name, prop, path, tree, std)
+      spawnX compile(file_name, prop, path, tree)
 
 proc main() =
   # main function, starts the compiler
@@ -115,8 +115,6 @@ proc main() =
         tree = 1
       of "k", "token-tree":
         tree = 2
-      of "s":
-        std = true
       else:
         prev = key
     of cmdArgument:
@@ -168,13 +166,13 @@ proc main() =
   elif files.len < 2:
     if not fileExists(files[0]):
       badArgError(&"file {files[0]} does not exist")
-    compile(files[0], prop, getCurrentDir(), tree, std)
+    compile(files[0], prop, getCurrentDir(), tree)
   else:
     wrote = 0
     for file in files:
       if not fileExists(file):
         badArgError(&"file {file} does not exist")
-      spawnX compile(file, prop, getCurrentDir(), tree, std)
+      spawnX compile(file, prop, getCurrentDir(), tree)
   sync()
   log("", &"DONE\n\nWrote {wrote} files", fgGreen)
 
