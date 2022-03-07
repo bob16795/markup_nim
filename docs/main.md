@@ -1,4 +1,5 @@
 # contents
 
-[Grammer](grammer.md)
-[Plugin Grammer](grammerplug.md)
+- [Grammer](grammer.md)
+
+- [Plugin Grammer](grammerplug.md)

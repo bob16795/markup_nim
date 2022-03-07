@@ -11,7 +11,6 @@ var
   wrote: int
   plugin: bool
 
-
 proc thread_check(text, cwd: string, tree: int, prop: Table[string, string]) {.gcsafe.}
 
 proc compile(file: string, prop: Table[string, string], wd: string, tree: int) =
@@ -37,12 +36,21 @@ proc compile(file: string, prop: Table[string, string], wd: string, tree: int) =
     cwd = file.split("/")[0..^2].join("/")
     file_new = file.split("/")[^1]
   var lexer_obj = initLexer(readFile(cwd & "/" & file_new), file_new)
-  var toks = runLexer(lexer_obj)
+  var toks = lexer_obj.runLexer()
   var parser_obj = initParser(toks, -1)
   var ast = parser_obj.runParser()
+  var props = prop
   case tree:
   of 0:
-    var output = visitBody(ast, file_new, cwd, prop)
+    if fileExists(getConfigDir() & "/markup/lib.mup"):
+      var plug = plugCompile(getConfigDir() & "/markup/lib.mup", wd)
+      var pluglexer = initLexer(plug, "lib.mup")
+      var plugtoks = pluglexer.runLexer()
+      var plugparser = initParser(plugtoks, -1)
+      var plugast = plugparser.runParser()
+      var plugoutput = visitBody(plugast, "lib.mup", cwd, props)
+      props = plugoutput.props
+    var output = visitBody(ast, file_new, cwd, props)
     var use = output.props["use"]
     var output_file = output.props["output"]
     var ignore = output.props["ignore"]
@@ -52,7 +60,7 @@ proc compile(file: string, prop: Table[string, string], wd: string, tree: int) =
     if use != "":
       if ";" in use:
         for text in use.split(";"):
-          spawnX thread_check(text, cwd, tree, prop,)
+          spawnX thread_check(text, cwd, tree, prop)
       else:
         thread_check(use, cwd, tree, prop)
   of 1:

@@ -406,7 +406,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
           '}'}) & " " & tmpname)
       discard execCmdEx("rm " & tmpname)
       if errc != 0:
-        log("Error while running code:\n" & "{outp}", props["file_name"])
+        log("Error while running code:\n" & outp, props["file_name"])
         return
       var lexer_obj = initLexer(outp & "\n", props["file_name"] & " - code block")
       var toks = runLexer(lexer_obj)

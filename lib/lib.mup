@@ -1,0 +1,6 @@
+ONCE: (IMPORT, PATH)
+	CODE: python
+		print("<IF: []needs[IMPORT][]>")
+	TAG PLG [PATH]
+	SET needs[IMPORT] = False
+	TAG ENDIF
