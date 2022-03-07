@@ -2,10 +2,10 @@ import osproc, unittest, strutils, os, sequtils, sugar
 import ../src/[parser,lexer,nodes,tokenclass]
 
 var rootDir = getCurrentDir().parentDir()
-var markupPath = rootDir / "src" / addFileExt("markup", ExeExt)
+var markupPath = rootDir / "src" / "markup"
 var path = rootDir / "src"
 
-var (output, exitCode) = execCmdEx("nim c " &  markupPath)
+var (output, exitCode) = execCmdEx("nim c " & markupPath)
 doAssert exitCode == QuitSuccess
 
 proc execMarkup(args: varargs[string]): tuple[output: string, exitCode: int] =
@@ -35,8 +35,9 @@ suite "code style":
     var (output, exitCode) = execCmdEx("grep echo " & path & " -R")
     for line in output.strip().split("\n"):
       assert "output.nim:" in line or
-        "binary" in line or
+        "Binary" in line or
         "markup.nimble:" in line or
+        "tests/" in line or
         line.strip() == ""
 
 suite "cli":
@@ -72,7 +73,7 @@ suite "cli":
     var (output, exitCode) = execMarkup("-p", "oh")
     check exitCode != QuitSuccess
     let lines = output.strip().split("\n")
-    check(inLines(lines, "Format for prop is `Prop:Value`"))
+    check(inLines(lines, "Format for prop is 'Prop:Value'"))
 
   test "help":
     var (output, exitCode) = execMarkup("--help")
@@ -85,12 +86,12 @@ suite "cli":
     check(lines == lines2)
 
   test "prop":
-    var (output, exitCode) = execMarkup("--prop", "lol: fdsa, nope: lol", "cli/prop.mu")
+    var (output, exitCode) = execMarkup("--prop", "output:stdout, lol: fdsa, nope: lol", "cli/prop.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
     check(inLines(lines, "(fdsa ) Tj"))
     check(inLines(lines, "(lol ) Tj"))
-    (output, exitCode) = execMarkup("-p", "lol: fdsa, nope: lol", "cli/prop.mu")
+    (output, exitCode) = execMarkup("-p", "output:stdout, lol: fdsa, nope: lol", "cli/prop.mu")
     let lines2 = output.strip().split("\n")
     check(lines == lines2)
 
@@ -218,7 +219,7 @@ suite "parser":
 
 suite "interpreter":
   test "yamlOverride":
-    var (output, exitCode) = execMarkup("-p", "lol:fdsa","interpreter/yaml.mu")
+    var (output, exitCode) = execMarkup("-p", "output:stdout, lol:fdsa","interpreter/yaml.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
     check(inLines(lines, "(fdsa ) Tj"))
@@ -226,7 +227,7 @@ suite "interpreter":
     check(inLines(lines, "(new ) Tj"))
 
   test "include":
-    var (output, exitCode) = execMarkup("interpreter/include/main.mu")
+    var (output, exitCode) = execMarkup("-p", "output:stdout", "interpreter/include/main.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
     check(inLines(lines, "(hello this is main ) Tj"))
@@ -251,7 +252,7 @@ suite "interpreter":
     check(inLines(lines, "lol"))
   
   test "tagPRP":
-    var (output, exitCode) = execMarkup("interpreter/tag_prp.mu")
+    var (output, exitCode) = execMarkup("-p", "output:stdout", "interpreter/tag_prp.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
     check(inLines(lines, "(value ) Tj"))
@@ -259,7 +260,7 @@ suite "interpreter":
 
 suite "pdfer":
   test "prepend":
-    var (output, exitCode) = execMarkup("pdfer/prepend.mu")
+    var (output, exitCode) = execMarkup("-p", "output:stdout", "pdfer/prepend.mu")
     check exitCode == QuitSuccess
     let lines = output.strip().split("\n")
     check(inLines(lines, "(he ) Tj"))

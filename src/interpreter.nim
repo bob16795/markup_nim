@@ -291,7 +291,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
       return
     if not(node.condition.strip() in props):
       initError(node.start_condition, node.start_condition,
-          "Prop allready exists", &"'{node.condition.strip()}'")
+          "Prop allready exists", &"'{node.condition}'")
     if node.invert == (props[node.condition.strip()] == "False"):
       props.set_prop(file, node.prop.strip(), node.value.strip(), ctx)
       return
@@ -406,7 +406,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
           '}'}) & " " & tmpname)
       discard execCmdEx("rm " & tmpname)
       if errc != 0:
-        log(&"Error while running code:\n{outp}", props["file_name"])
+        log("Error while running code:\n" & "{outp}", props["file_name"])
         return
       var lexer_obj = initLexer(outp & "\n", props["file_name"] & " - code block")
       var toks = runLexer(lexer_obj)
@@ -418,7 +418,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
       for s in node.code.strip.split("\n"):
         file.add_text("> " & s, 12, bg = color(r: 0.7, g: 0.7, b: 0.7))
   else:
-    initError(node.start_pos, node.end_pos, "Not Implemented", &"'visit{node.kind}'")
+    initError(node.start_pos, node.end_pos, "Not Implemented", &"'visit - {node.kind}'")
 
 proc visitBody*(node: Node, file_name: string, wd: string, prop_pre: Table[
     string, string]): int_return =
