@@ -354,7 +354,7 @@ proc visit(node: Node, file: var pdf_file, props: var Table[string, string],
             props[counter] = $(props[counter].parseInt() + by)
           except:
             props[counter] = "0"
-        file.add_text(text, ctx.size.toFloat(), align = ctx.align,
+        file.add_text(text.replace("\n", ""), ctx.size.toFloat(), align = ctx.align,
             ident = ctx.ident, just = ctx.just)
         text = ""
   of nkTextBold:
